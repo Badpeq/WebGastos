@@ -6,20 +6,21 @@ class Installment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'), nullable=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+    presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id'), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=False)
+    monto_total = db.Column(db.Float, nullable=False)
+    cuotas_totales = db.Column(db.Integer, nullable=False)
+    cuotas_pagadas = db.Column(db.Integer, default=0)
+    fecha_inicio = db.Column(db.Date, nullable=False, default=date.today)
+    frecuencia = db.Column(db.String(20), nullable=False, default='mensual')  # mensual o anual
+    pagado = db.Column(db.Boolean, default=False)
 
-    description = db.Column(db.String(255), nullable=False)
-    total_amount = db.Column(db.Float, nullable=False)
-    start_date = db.Column(db.Date, default=date.today)
-    end_date = db.Column(db.Date)
-    number_of_installments = db.Column(db.Integer)
-    installment_amount = db.Column(db.Float)
-    is_paid = db.Column(db.Boolean, default=False)
+    # Relaciones
+    user = db.relationship('User', backref='installments', lazy=True)
+    presupuesto = db.relationship('Presupuesto', backref='installments', lazy=True)
 
-    user = db.relationship('User', backref='installments')
-    budget = db.relationship('Budget', backref='installments')
-    category = db.relationship('Category', backref='installments')
+    def cuotas_pendientes(self):
+        return max(self.cuotas_totales - self.cuotas_pagadas, 0)
 
-    def __repr__(self):
-        return f"<Installment {self.description}: {self.number_of_installments} cuotas>"
+    def esta_pagado(self):
+        return self.pagado or self.cuotas_pagadas >= self.cuotas_totales
