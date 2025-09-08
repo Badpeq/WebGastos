@@ -13,6 +13,15 @@ def create_app():
     migrate.init_app(app, db)
     login_manager.init_app(app)
 
+    login_manager.login_view = 'auth.login'  # Redirigir a login si no está autenticado
+
+    from app.models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+
     # Importación y registro de Blueprints
     from app.routes.auth import auth_bp
     from app.routes.dashboard import dashboard_bp

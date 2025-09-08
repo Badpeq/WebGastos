@@ -6,8 +6,8 @@ class RecurringExpense(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'), nullable=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id'), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), nullable=True)
 
     description = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Float, nullable=False)

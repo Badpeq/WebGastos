@@ -8,7 +8,7 @@ class Log(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     action = db.Column(db.String(255), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    metadata = db.Column(db.Text)  # JSON string o información adicional
+    metad_info = db.Column(db.Text)  # JSON string o información adicional
 
     user = db.relationship('User', backref='logs')
 
