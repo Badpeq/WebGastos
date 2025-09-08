@@ -3,6 +3,7 @@ from flask_login import UserMixin
 
 class Gasto(db.Model):
     __tablename__ = 'gastos'
+
     id = db.Column(db.Integer, primary_key=True)
     descripcion = db.Column(db.String(255))
     monto = db.Column(db.Float)
@@ -13,3 +14,6 @@ class Gasto(db.Model):
 
     presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id'), nullable=False)
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), nullable=True)
+
+    presupuesto = db.relationship('Presupuesto', back_populates='gastos')
+    categoria = db.relationship('Categoria', back_populates='gastos')

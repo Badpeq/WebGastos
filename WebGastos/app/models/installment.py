@@ -1,3 +1,4 @@
+# app/models/installment.py
 from app.extensions import db
 from datetime import date
 
@@ -12,12 +13,11 @@ class Installment(db.Model):
     cuotas_totales = db.Column(db.Integer, nullable=False)
     cuotas_pagadas = db.Column(db.Integer, default=0)
     fecha_inicio = db.Column(db.Date, nullable=False, default=date.today)
-    frecuencia = db.Column(db.String(20), nullable=False, default='mensual')  # mensual o anual
+    frecuencia = db.Column(db.String(20), nullable=False, default='mensual')
     pagado = db.Column(db.Boolean, default=False)
 
-    # Relaciones
-    user = db.relationship('User', backref='installments', lazy=True)
-    presupuesto = db.relationship('Presupuesto', backref='installments', lazy=True)
+    user = db.relationship('User', back_populates='installments')
+    presupuesto = db.relationship('Presupuesto', back_populates='installments')
 
     def cuotas_pendientes(self):
         return max(self.cuotas_totales - self.cuotas_pagadas, 0)
