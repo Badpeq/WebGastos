@@ -6,7 +6,7 @@
 {% block header_subtitle %}Resumen del período{% endblock %}
 
 {% block header_cta %}
-  <button onclick="document.getElementById('drawer-gasto').classList.remove('translate-x-full')"
+  <button id="btn-nuevo-gasto"
           class="flex items-center gap-2 bg-accent hover:bg-accent-light text-white
                  text-sm font-semibold px-4 py-2 rounded-xl transition-colors
                  shadow-md shadow-accent/30 flex-shrink-0">
@@ -19,105 +19,127 @@
 
 {% block content %}
 
-  {# ── Banner de estado del presupuesto ───────────────────────────────────── #}
+  {# ── Aviso: sin presupuesto ─────────────────────────────────────────────── #}
   {% if not presupuesto %}
-  <div class="mb-6 px-5 py-4 bg-fin-yellow/10 border border-fin-yellow/30
+  <div class="mb-5 px-4 py-3.5 bg-fin-yellow/10 border border-fin-yellow/25
               rounded-xl flex items-center gap-3">
-    <svg class="w-5 h-5 text-fin-yellow flex-shrink-0" fill="none" viewBox="0 0 24 24"
-         stroke="currentColor" stroke-width="2">
+    <svg class="w-4 h-4 text-fin-yellow flex-shrink-0" fill="none" viewBox="0 0 24 24"
+         stroke="currentColor" stroke-width="2.5">
       <path stroke-linecap="round" stroke-linejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73
-               0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
-               0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71
+               c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5
+               -3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
     </svg>
     <p class="text-sm text-fin-yellow">
-      No tienes ningún presupuesto creado.
+      No tienes ningún presupuesto. Sin él no podemos calcular el semáforo.
       <a href="#" class="font-semibold underline hover:no-underline ml-1">Crear presupuesto →</a>
     </p>
   </div>
   {% endif %}
 
-  {# ── Placeholder: los componentes se construyen en el siguiente paso ─────── #}
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+  {# ════════════════════════════════════ 1 · VELOCÍMETRO (hero) ════════════ #}
+  {% include 'components/velocimetro.html' %}
 
-    {# Stat: Capa 1 #}
+
+  {# ════════════════════════════════════ 2 · 3 CAPAS DE DEUDA ════════════ #}
+  {# (placeholder hasta el próximo paso; las capas se construyen aquí) #}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+    {# -- Capa 1: Lo que ya gastaste ---------------------------------------- #}
     <div class="bg-surface-card border border-app-border rounded-2xl p-5">
-      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
-        Lo que ya gastaste
+      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
+        ① Lo que ya gastaste
       </p>
       <p class="text-3xl font-extrabold text-content-primary num">
         S/ {{ '%.2f' | format(capa1.total_pen) }}
       </p>
-      <p class="text-xs text-content-muted mt-1">
-        {{ capa1.gastos_count }} transacción{{ 'es' if capa1.gastos_count != 1 else '' }}
+      <p class="text-xs text-content-muted mt-1.5">
+        {{ capa1.gastos_count }}
+        transacción{{ 'es' if capa1.gastos_count != 1 else '' }} este mes
         {% if capa1.total_usd > 0 %}
-          · incluye ${{ '%.2f' | format(capa1.total_usd) }} USD
+          · incl. ${{ '%.2f' | format(capa1.total_usd) }} USD
         {% endif %}
       </p>
     </div>
 
-    {# Stat: Capa 2 #}
-    <div class="bg-surface-card border border-app-border rounded-2xl p-5">
-      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
-        Compromisos fijos
+    {# -- Capa 2: Compromisos fijos ----------------------------------------- #}
+    <div class="bg-surface-card border border-fin-yellow/20 rounded-2xl p-5">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
+        ② Compromisos fijos
       </p>
       <p class="text-3xl font-extrabold text-content-primary num">
         S/ {{ '%.2f' | format(capa2.total_pen) }}
       </p>
-      <p class="text-xs text-content-muted mt-1">
-        {{ capa2.lista | length }} item{{ 's' if capa2.lista | length != 1 else '' }} pendiente{{ 's' if capa2.lista | length != 1 else '' }}
+      <p class="text-xs text-content-muted mt-1.5">
+        {{ capa2.lista | length }}
+        ítem{{ 's' if capa2.lista | length != 1 else '' }} pendiente{{ 's' if capa2.lista | length != 1 else '' }}
       </p>
     </div>
 
-    {# Stat: Capa 3 — color dinámico #}
-    {% set estado_clases = {
-      'verde':      'border-fin-green/30 bg-fin-green-bg',
-      'naranja':    'border-fin-yellow/30 bg-fin-yellow-bg',
-      'rojo':       'border-fin-red/30 bg-fin-red-bg',
-      'sin_limite': 'border-app-border bg-surface-card',
-    } %}
-    {% set estado_text = {
-      'verde':      'text-fin-green',
-      'naranja':    'text-fin-yellow',
-      'rojo':       'text-fin-red',
-      'sin_limite': 'text-content-primary',
-    } %}
-    <div class="border rounded-2xl p-5 {{ estado_clases.get(capa3.estado, 'border-app-border bg-surface-card') }}">
-      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
-        Proyectado fin de mes
+    {# -- Capa 3: Proyectado (repite el número del velocímetro, tipografía ++display) #}
+    {% if capa3.estado == 'verde' %}
+      {% set c3_cls = 'border-fin-green/30 bg-fin-green/5' %}
+      {% set c3_num = 'text-fin-green' %}
+    {% elif capa3.estado == 'naranja' %}
+      {% set c3_cls = 'border-fin-yellow/30 bg-fin-yellow/5' %}
+      {% set c3_num = 'text-fin-yellow' %}
+    {% elif capa3.estado == 'rojo' %}
+      {% set c3_cls = 'border-fin-red/30 bg-fin-red/5' %}
+      {% set c3_num = 'text-fin-red' %}
+    {% else %}
+      {% set c3_cls = 'border-app-border' %}
+      {% set c3_num = 'text-content-primary' %}
+    {% endif %}
+
+    <div class="border rounded-2xl p-5 bg-surface-card {{ c3_cls }}">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
+        ③ Tu destino financiero
       </p>
-      <p class="text-3xl font-extrabold num {{ estado_text.get(capa3.estado, 'text-content-primary') }}">
+      <p class="text-3xl font-extrabold num {{ c3_num }}">
         S/ {{ '%.2f' | format(capa3.proyectado) }}
       </p>
-      <p class="text-xs text-content-muted mt-1">
-        Run-rate S/ {{ '%.2f' | format(capa3.run_rate_diario) }}/día
-        · Día {{ dias_transcurridos }}/{{ dias_totales }}
+      <p class="text-xs text-content-muted mt-1.5">
+        Proyección run-rate · día {{ dias_transcurridos }}/{{ dias_totales }}
         {% if capa3.monto_limite %}
           · {{ capa3.pct_proyectado }}% del límite
         {% else %}
-          · <span class="text-fin-yellow">Sin límite definido</span>
+          · <span class="text-fin-yellow">Define un límite</span>
         {% endif %}
       </p>
     </div>
 
   </div>
 
-  {# ── Categorías (preview) ─────────────────────────────────────────────── #}
+
+  {# ════════════════════════════════════ 3 · CATEGORÍAS ════════════════════ #}
   {% if categorias %}
   <div class="bg-surface-card border border-app-border rounded-2xl p-5 mb-6">
-    <h2 class="text-sm font-semibold text-content-primary mb-4">Gastos por categoría</h2>
-    <div class="space-y-3">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-content-primary">Gastos por categoría</h2>
+      <span class="text-xs text-content-muted">{{ mes_nombre | capitalize }}</span>
+    </div>
+    <div class="space-y-3.5">
       {% for cat in categorias %}
       <div>
         <div class="flex items-center justify-between text-sm mb-1.5">
           <span class="font-medium text-content-primary">{{ cat.nombre }}</span>
-          <span class="text-content-muted num">S/ {{ '%.2f' | format(cat.total_pen) }}</span>
+          <div class="flex items-center gap-2.5">
+            {% if cat.pct_limite > 0 %}
+            <span class="text-xs {{ 'text-fin-red' if cat.pct_limite > 100 else 'text-fin-yellow' if cat.pct_limite > 85 else 'text-content-muted' }} num">
+              {{ '%.0f' | format(cat.pct_limite) }}%
+            </span>
+            {% endif %}
+            <span class="text-content-muted num text-sm">S/ {{ '%.2f' | format(cat.total_pen) }}</span>
+          </div>
         </div>
         <div class="h-1.5 bg-surface-elevated rounded-full overflow-hidden">
-          {% set bar_w = [cat.pct_limite, 100] | min %}
-          <div class="h-full rounded-full transition-all duration-500
-                      {{ 'bg-fin-red' if cat.pct_limite > 100 else 'bg-fin-yellow' if cat.pct_limite > 85 else 'bg-accent' }}"
-               style="width: {{ bar_w }}%">
+          {% set bar_w = [cat.pct_limite, 100] | max %}
+          {% set bar_w = [bar_w, 0] | max %}
+          <div class="h-full rounded-full transition-all duration-700 ease-out
+                      {{ 'bg-fin-red'    if cat.pct_limite > 100
+                    else 'bg-fin-yellow' if cat.pct_limite > 85
+                    else 'bg-accent' }}"
+               style="width: {{ [cat.pct_limite, 100] | min | round }}%">
           </div>
         </div>
       </div>
@@ -126,56 +148,117 @@
   </div>
   {% endif %}
 
-  {# ── Transacciones recientes ──────────────────────────────────────────── #}
-  {% if transacciones %}
+
+  {# ════════════════════════════════════ 4 · TRANSACCIONES ═════════════════ #}
   <div class="bg-surface-card border border-app-border rounded-2xl overflow-hidden">
-    <div class="px-5 py-4 border-b border-app-border">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-app-border">
       <h2 class="text-sm font-semibold text-content-primary">Últimas transacciones</h2>
+      {% if transacciones %}
+      <span class="text-xs text-content-muted">{{ transacciones | length }} registros</span>
+      {% endif %}
     </div>
-    <ul class="divide-y divide-app-border">
+
+    {% if transacciones %}
+    <ul role="list" class="divide-y divide-app-border">
       {% for g in transacciones %}
-      <li class="flex items-center gap-4 px-5 py-3.5">
+      <li class="flex items-center gap-4 px-5 py-3.5 hover:bg-surface-elevated/40 transition-colors">
+
+        {# Ícono de categoría (inicial) #}
+        <div class="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center
+                    flex-shrink-0 text-xs font-bold text-content-muted">
+          {{ g.categoria.nombre[0] | upper if g.categoria else '?' }}
+        </div>
+
+        {# Descripción + meta #}
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-content-primary truncate">{{ g.descripcion }}</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-medium text-content-primary truncate">
+              {{ g.descripcion }}
+            </span>
+
+            {# Badge: gasto único #}
             {% if g.es_gasto_unico %}
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-                         font-medium bg-surface-elevated text-content-muted border border-app-border
-                         flex-shrink-0"
-                  title="Gasto único — no afecta la proyección mensual">
-              ⚡ único
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                         text-[10px] font-semibold bg-surface-elevated
+                         text-content-muted border border-app-border flex-shrink-0"
+                  title="Gasto único — excluido del cálculo de proyección mensual">
+              <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M11.983 1.907a.75.75 0 00-1.292-.657l-8.5 9.5A.75.75 0
+                         00 2.75 12h6.572l-1.305 6.093a.75.75 0 001.292.657l8.5-9.5A.75.75
+                         0 0017.25 8h-6.572l1.305-6.093z"/>
+              </svg>
+              único
             </span>
             {% endif %}
+
+            {# Badge: recurrente #}
             {% if g.recurrente %}
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-                         font-medium bg-accent/10 text-accent border border-accent/20 flex-shrink-0">
-              ⟳ rec.
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                         text-[10px] font-semibold bg-accent/10
+                         text-accent border border-accent/20 flex-shrink-0">
+              <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24"
+                   stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0
+                         0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0
+                         0013.803-3.7M4.031 9.865a8.25 8.25 0
+                         0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+              </svg>
+              rec.
             </span>
             {% endif %}
+
           </div>
           <p class="text-xs text-content-muted mt-0.5">
-            {{ g.fecha.strftime('%d %b') if g.fecha else '' }}
-            {% if g.categoria %}· {{ g.categoria.nombre }}{% endif %}
-            {% if g.subcategoria %}· {{ g.subcategoria.nombre }}{% endif %}
+            {{ g.fecha.strftime('%d %b %Y') if g.fecha else '—' }}
+            {% if g.categoria %} · {{ g.categoria.nombre }}{% endif %}
+            {% if g.subcategoria %} › {{ g.subcategoria.nombre }}{% endif %}
           </p>
         </div>
+
+        {# Monto #}
         <div class="text-right flex-shrink-0">
           <p class="text-sm font-semibold text-content-primary num">
             {{ g.moneda }} {{ '%.2f' | format(g.monto) }}
           </p>
           {% if g.moneda == 'USD' %}
-          <p class="text-xs text-content-muted">≈ S/ {{ '%.2f' | format(g.monto * 3.75) }}</p>
+          <p class="text-[11px] text-content-muted num">
+            ≈ S/ {{ '%.2f' | format(g.monto * tasa_usd) }}
+          </p>
           {% endif %}
         </div>
+
       </li>
       {% endfor %}
     </ul>
+
+    {% else %}
+    <div class="px-5 py-16 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-surface-elevated flex items-center
+                  justify-center mx-auto mb-4">
+        <svg class="w-7 h-7 text-content-muted" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198
+                   1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75
+                   0 013 6h-.75m0 0v-.375c0-.621.504-1.125
+                   1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621
+                   0 1.125.504 1.125 1.125v9.75c0 .621-.504
+                   1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75
+                   0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125
+                   1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75
+                   0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3
+                   0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+        </svg>
+      </div>
+      <p class="text-sm font-medium text-content-muted">
+        Sin transacciones este mes
+      </p>
+      <p class="text-xs text-content-muted/50 mt-1">
+        Presiona <span class="font-semibold">"Nuevo gasto"</span> para empezar.
+      </p>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="bg-surface-card border border-app-border rounded-2xl p-12 text-center">
-    <p class="text-content-muted text-sm">No hay gastos registrados este mes.</p>
-    <p class="text-content-muted/50 text-xs mt-1">Presiona "Nuevo gasto" para empezar.</p>
-  </div>
-  {% endif %}
 
 {% endblock %}

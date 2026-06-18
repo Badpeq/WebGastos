@@ -1,0 +1,313 @@
+{#
+  components/velocimetro.html — Run-Rate Tracker / Velocímetro de Gasto
+  Contexto esperado (viene del dashboard route):
+    capa1  → { total_pen, total_usd, gastos_count }
+    capa3  → { proyectado, run_rate_diario, pct_proyectado, estado,
+                monto_limite, ahorro_posible, sobregiro, meta_diaria_ideal }
+    dias_transcurridos, dias_totales
+#}
+
+{# ── Resolución de colores por estado ─────────────────────────────────────── #}
+{% if capa3.estado == 'verde' %}
+  {% set stroke_color = '#00E5A0' %}
+  {% set text_cls     = 'text-fin-green' %}
+  {% set alert_cls    = 'bg-fin-green/10 border-fin-green/25 text-fin-green' %}
+  {% set dot_glow     = '' %}
+{% elif capa3.estado == 'naranja' %}
+  {% set stroke_color = '#FFB800' %}
+  {% set text_cls     = 'text-fin-yellow' %}
+  {% set alert_cls    = 'bg-fin-yellow/10 border-fin-yellow/25 text-fin-yellow' %}
+  {% set dot_glow     = '' %}
+{% elif capa3.estado == 'rojo' %}
+  {% set stroke_color = '#FF3B6B' %}
+  {% set text_cls     = 'text-fin-red' %}
+  {% set alert_cls    = 'bg-fin-red/10 border-fin-red/25 text-fin-red pulse-danger' %}
+  {% set dot_glow     = 'velocimetro-glow' %}
+{% else %}
+  {% set stroke_color = '#6C63FF' %}
+  {% set text_cls     = 'text-accent' %}
+  {% set alert_cls    = 'bg-accent/10 border-accent/25 text-accent' %}
+  {% set dot_glow     = '' %}
+{% endif %}
+
+{# ── Cap visual: el arco nunca supera el 100% en display ──────────────────── #}
+{% if capa3.pct_proyectado >= 100 %}{% set pct_vis = 100 %}
+{% else %}{% set pct_vis = capa3.pct_proyectado %}{% endif %}
+
+{# Circunferencia: π × 90 = 282.74 #}
+{% set C = 282.74 %}
+
+{# ════════════════════════════════════════════════════════ CARD VELOCÍMETRO ═ #}
+<section class="bg-surface-card border border-app-border rounded-2xl overflow-hidden mb-6">
+
+  {# ── Cabecera ────────────────────────────────────────────────────────────── #}
+  <div class="flex items-center justify-between px-6 pt-5 pb-0">
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                   {{ 'bg-fin-green'  if capa3.estado == 'verde'
+               else 'bg-fin-yellow' if capa3.estado == 'naranja'
+               else 'bg-fin-red'    if capa3.estado == 'rojo'
+               else 'bg-accent' }}"></span>
+      <h2 class="text-xs font-bold uppercase tracking-widest text-content-muted">
+        Run-Rate Tracker
+      </h2>
+    </div>
+    {% if capa3.monto_limite %}
+      <span class="text-xs text-content-muted num">
+        Límite: S/&nbsp;{{ '%.0f' | format(capa3.monto_limite) }}
+      </span>
+    {% else %}
+      <span class="text-xs text-content-muted/40 italic">Sin límite</span>
+    {% endif %}
+  </div>
+
+  {# ── Gauge SVG ───────────────────────────────────────────────────────────── #}
+  {#
+     viewBox 0 0 220 112
+     Centro: (110, 108)   Radio: 90   C ≈ 282.74
+     Arco:   M 20,108 A 90,90 0 0,1 200,108
+     Ticks:  calculados geométricamente (ver script Python)
+  #}
+  <div class="px-6 pt-2 pb-0">
+    <div class="relative flex justify-center select-none">
+
+      <svg viewBox="0 0 220 112"
+           class="w-full max-w-[300px]"
+           role="img"
+           aria-label="Velocímetro: {{ '%.0f' | format(pct_vis) }}% del presupuesto proyectado">
+
+        {# Ticks de referencia (4 divisiones: 0 25 50 75 100) #}
+        <g stroke="#2A3050" stroke-width="1.5" stroke-linecap="round">
+          <line x1="20"    y1="108"  x2="11"   y2="108"/>   {# 0%   #}
+          <line x1="46.4"  y1="44.4" x2="40"   y2="38"/>    {# 25%  #}
+          <line x1="110"   y1="18"   x2="110"  y2="9"/>     {# 50%  #}
+          <line x1="173.6" y1="44.4" x2="180"  y2="38"/>    {# 75%  #}
+          <line x1="200"   y1="108"  x2="209"  y2="108"/>   {# 100% #}
+        </g>
+
+        {# Etiquetas de porcentaje #}
+        <g font-size="8" font-family="Inter,system-ui,sans-serif" fill="#7C85A8">
+          <text x="9"   y="112" text-anchor="middle">0%</text>
+          <text x="110" y="5"   text-anchor="middle">50%</text>
+          <text x="211" y="112" text-anchor="middle">100%</text>
+        </g>
+
+        {# Track de fondo #}
+        <path d="M 20,108 A 90,90 0 0,1 200,108"
+              fill="none"
+              stroke="#1E2640"
+              stroke-width="14"
+              stroke-linecap="round"/>
+
+        {# Glow (solo en alerta roja) #}
+        {% if capa3.estado == 'rojo' %}
+        <path id="velocimetro-glow"
+              d="M 20,108 A 90,90 0 0,1 200,108"
+              fill="none"
+              stroke="#FF3B6B"
+              stroke-width="30"
+              stroke-linecap="round"
+              stroke-dasharray="{{ C }}"
+              stroke-dashoffset="{{ C }}"
+              opacity="0.12"
+              style="transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)">
+        </path>
+        {% endif %}
+
+        {# Arco de progreso #}
+        <path id="velocimetro-arc"
+              d="M 20,108 A 90,90 0 0,1 200,108"
+              fill="none"
+              stroke="{{ stroke_color }}"
+              stroke-width="14"
+              stroke-linecap="round"
+              stroke-dasharray="{{ C }}"
+              stroke-dashoffset="{{ C }}"
+              style="transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
+                     filter: drop-shadow(0 0 5px {{ stroke_color }}66)">
+        </path>
+
+        {# Dot indicador en el extremo del arco #}
+        <circle id="velocimetro-dot"
+                cx="20" cy="108" r="9"
+                fill="{{ stroke_color }}"
+                style="filter: drop-shadow(0 0 6px {{ stroke_color }})">
+        </circle>
+        <circle id="velocimetro-dot-shine"
+                cx="20" cy="108" r="3.5"
+                fill="white" opacity="0.55">
+        </circle>
+
+      </svg>
+
+      {# Número central: overlay HTML dentro del hueco del semicírculo #}
+      <div class="absolute inset-x-0 bottom-0 pb-1 flex flex-col items-center pointer-events-none">
+        <span id="gauge-amount"
+              class="text-4xl sm:text-[2.75rem] font-extrabold num leading-none {{ text_cls }}">
+          S/ {{ '%.0f' | format(capa3.proyectado) }}
+        </span>
+        <span class="text-xs text-content-muted mt-1.5 font-medium tracking-wide">
+          proyectado a fin de mes
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Banner empático ─────────────────────────────────────────────────────── #}
+  <div class="px-6 pb-5">
+    {% if capa3.estado != 'sin_limite' %}
+    <div class="mt-5 px-4 py-3.5 rounded-xl border {{ alert_cls }} text-sm leading-relaxed">
+      <div class="flex gap-2.5 items-start">
+
+        {# Ícono de estado #}
+        <div class="flex-shrink-0 mt-0.5">
+          {% if capa3.estado == 'verde' %}
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {% elif capa3.estado == 'naranja' %}
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948
+                     3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949
+                     3.378c-.866-1.5-3.032-1.5-3.898 0L2.697
+                     16.126zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+          {% else %}
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948
+                     3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.051
+                     3.378c.866-1.5 3.032-1.5 3.898 0l6.354
+                     13.124zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+          {% endif %}
+        </div>
+
+        {# Copy según estado #}
+        <p>
+          {% if capa3.estado == 'verde' %}
+            Vas bien. Al ritmo actual terminarás gastando
+            <strong>S/ {{ '%.0f' | format(capa3.proyectado) }}</strong>,
+            ahorrando <strong>S/ {{ '%.0f' | format(capa3.ahorro_posible) }}</strong>
+            frente a tu límite.
+            Meta diaria actual: <strong>S/ {{ '%.0f' | format(capa3.run_rate_diario) }}/día</strong>.
+          {% elif capa3.estado == 'naranja' %}
+            Estás al límite. Al ritmo de hoy terminarás gastando
+            <strong>S/ {{ '%.0f' | format(capa3.proyectado) }}</strong>,
+            a solo <strong>S/ {{ '%.0f' | format(capa3.ahorro_posible) }}</strong> de tu tope.
+            Reduce a <strong>S/ {{ '%.0f' | format(capa3.meta_diaria_ideal) }}/día</strong>
+            para volver a zona verde.
+          {% else %}
+            Al ritmo de hoy terminarás gastando
+            <strong>S/ {{ '%.0f' | format(capa3.proyectado) }}</strong>
+            — <strong>S/ {{ '%.0f' | format(capa3.sobregiro) }}</strong> sobre tu límite.
+            Estás a tiempo: ajusta a
+            <strong>S/ {{ '%.0f' | format(capa3.meta_diaria_ideal) }}/día</strong>
+            los días restantes para no sobregirar.
+          {% endif %}
+        </p>
+
+      </div>
+    </div>
+    {% else %}
+    <div class="mt-5 px-4 py-3.5 rounded-xl border bg-accent/10 border-accent/25 text-accent text-sm">
+      <strong>Define un límite mensual</strong> en tu presupuesto para activar
+      el semáforo y la proyección personalizada.
+      <a href="#" class="underline hover:no-underline ml-1">Configurar →</a>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Stats row (4 columnas) ──────────────────────────────────────────────── #}
+  <div class="grid grid-cols-2 sm:grid-cols-4 border-t border-app-border divide-x divide-y sm:divide-y-0 divide-app-border">
+
+    <div class="flex flex-col items-center py-4 px-3">
+      <span class="text-xl font-bold text-content-primary num">
+        S/ {{ '%.0f' | format(capa1.total_pen) }}
+      </span>
+      <span class="text-[11px] text-content-muted mt-0.5">Gastado real</span>
+    </div>
+
+    <div class="flex flex-col items-center py-4 px-3">
+      <span class="text-xl font-bold text-content-primary num">
+        {{ dias_transcurridos }}<span class="text-sm font-normal text-content-muted">/{{ dias_totales }}</span>
+      </span>
+      <span class="text-[11px] text-content-muted mt-0.5">Días del mes</span>
+    </div>
+
+    <div class="flex flex-col items-center py-4 px-3">
+      <span class="text-xl font-bold text-content-primary num">
+        S/ {{ '%.0f' | format(capa3.run_rate_diario) }}
+      </span>
+      <span class="text-[11px] text-content-muted mt-0.5">Ritmo/día</span>
+    </div>
+
+    <div class="flex flex-col items-center py-4 px-3">
+      {% if capa3.monto_limite %}
+        <span class="text-xl font-bold text-content-primary num">
+          S/ {{ '%.0f' | format(capa3.monto_limite) }}
+        </span>
+        <span class="text-[11px] text-content-muted mt-0.5">Límite mensual</span>
+      {% else %}
+        <span class="text-xl font-bold text-content-muted">—</span>
+        <span class="text-[11px] text-content-muted mt-0.5">Sin límite</span>
+      {% endif %}
+    </div>
+
+  </div>
+
+</section>
+
+{# ── Animación del gauge (JS) ────────────────────────────────────────────── #}
+<script>
+(function () {
+  'use strict';
+
+  var pct         = {{ pct_vis }};
+  var C           = 282.74;
+  var cx          = 110, cy = 108, r = 90;
+  var targetOff   = C * (1 - pct / 100);
+  var angle       = Math.PI * (1 - pct / 100);
+  var targetDotX  = cx + r * Math.cos(angle);
+  var targetDotY  = cy - r * Math.sin(angle);
+  var startX      = 20, startY = 108;   // posición 0% (izquierda)
+  var duration    = 1200;
+  var startTime   = null;
+
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  // Animación del dot con rAF (setAttribute no dispara CSS transition)
+  function animateDot(ts) {
+    if (!startTime) startTime = ts;
+    var prog  = Math.min((ts - startTime) / duration, 1);
+    var eased = easeInOut(prog);
+    var cx_   = (startX + (targetDotX - startX) * eased).toFixed(2);
+    var cy_   = (startY + (targetDotY - startY) * eased).toFixed(2);
+
+    ['velocimetro-dot', 'velocimetro-dot-shine'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.setAttribute('cx', cx_); el.setAttribute('cy', cy_); }
+    });
+
+    if (prog < 1) requestAnimationFrame(animateDot);
+  }
+
+  // Arrancar todo en doble-RAF para que el CSS transition esté activo
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      var arc = document.getElementById('velocimetro-arc');
+      if (arc) arc.style.strokeDashoffset = targetOff;
+
+      var glow = document.getElementById('velocimetro-glow');
+      if (glow) glow.style.strokeDashoffset = targetOff;
+    });
+  });
+
+  requestAnimationFrame(animateDot);
+}());
+</script>
