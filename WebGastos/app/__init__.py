@@ -1,10 +1,10 @@
-from flask import Flask
+from flask import Flask, session
 from app.extensions import db, migrate, login_manager
 from app.models import *  # Importa todos los modelos necesarios
 
 def create_app():
     app = Flask(__name__)
-    
+
     # Configuración general
     app.config.from_object('config.Config')
 
@@ -13,13 +13,21 @@ def create_app():
     migrate.init_app(app, db)
     login_manager.init_app(app)
 
-    login_manager.login_view = 'auth.login'  # Redirigir a login si no está autenticado
+    login_manager.login_view = 'auth.login'
 
     from app.models import User
 
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+
+    @app.context_processor
+    def inject_usuario():
+        """Inyecta 'usuario' en todos los templates para el layout shell."""
+        user_id = session.get('user_id')
+        if user_id:
+            return {'usuario': User.query.get(user_id)}
+        return {'usuario': None}
 
 
     # Importación y registro de Blueprints

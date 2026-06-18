@@ -1,0 +1,181 @@
+{% extends 'layout.html' %}
+
+{% block title %}Dashboard — WebGastos{% endblock %}
+
+{% block header_title %}{{ mes_nombre | capitalize }}{% endblock %}
+{% block header_subtitle %}Resumen del período{% endblock %}
+
+{% block header_cta %}
+  <button onclick="document.getElementById('drawer-gasto').classList.remove('translate-x-full')"
+          class="flex items-center gap-2 bg-accent hover:bg-accent-light text-white
+                 text-sm font-semibold px-4 py-2 rounded-xl transition-colors
+                 shadow-md shadow-accent/30 flex-shrink-0">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+    Nuevo gasto
+  </button>
+{% endblock %}
+
+{% block content %}
+
+  {# ── Banner de estado del presupuesto ───────────────────────────────────── #}
+  {% if not presupuesto %}
+  <div class="mb-6 px-5 py-4 bg-fin-yellow/10 border border-fin-yellow/30
+              rounded-xl flex items-center gap-3">
+    <svg class="w-5 h-5 text-fin-yellow flex-shrink-0" fill="none" viewBox="0 0 24 24"
+         stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73
+               0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
+               0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+    </svg>
+    <p class="text-sm text-fin-yellow">
+      No tienes ningún presupuesto creado.
+      <a href="#" class="font-semibold underline hover:no-underline ml-1">Crear presupuesto →</a>
+    </p>
+  </div>
+  {% endif %}
+
+  {# ── Placeholder: los componentes se construyen en el siguiente paso ─────── #}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+
+    {# Stat: Capa 1 #}
+    <div class="bg-surface-card border border-app-border rounded-2xl p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
+        Lo que ya gastaste
+      </p>
+      <p class="text-3xl font-extrabold text-content-primary num">
+        S/ {{ '%.2f' | format(capa1.total_pen) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1">
+        {{ capa1.gastos_count }} transacción{{ 'es' if capa1.gastos_count != 1 else '' }}
+        {% if capa1.total_usd > 0 %}
+          · incluye ${{ '%.2f' | format(capa1.total_usd) }} USD
+        {% endif %}
+      </p>
+    </div>
+
+    {# Stat: Capa 2 #}
+    <div class="bg-surface-card border border-app-border rounded-2xl p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
+        Compromisos fijos
+      </p>
+      <p class="text-3xl font-extrabold text-content-primary num">
+        S/ {{ '%.2f' | format(capa2.total_pen) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1">
+        {{ capa2.lista | length }} item{{ 's' if capa2.lista | length != 1 else '' }} pendiente{{ 's' if capa2.lista | length != 1 else '' }}
+      </p>
+    </div>
+
+    {# Stat: Capa 3 — color dinámico #}
+    {% set estado_clases = {
+      'verde':      'border-fin-green/30 bg-fin-green-bg',
+      'naranja':    'border-fin-yellow/30 bg-fin-yellow-bg',
+      'rojo':       'border-fin-red/30 bg-fin-red-bg',
+      'sin_limite': 'border-app-border bg-surface-card',
+    } %}
+    {% set estado_text = {
+      'verde':      'text-fin-green',
+      'naranja':    'text-fin-yellow',
+      'rojo':       'text-fin-red',
+      'sin_limite': 'text-content-primary',
+    } %}
+    <div class="border rounded-2xl p-5 {{ estado_clases.get(capa3.estado, 'border-app-border bg-surface-card') }}">
+      <p class="text-xs font-semibold uppercase tracking-wider text-content-muted mb-1">
+        Proyectado fin de mes
+      </p>
+      <p class="text-3xl font-extrabold num {{ estado_text.get(capa3.estado, 'text-content-primary') }}">
+        S/ {{ '%.2f' | format(capa3.proyectado) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1">
+        Run-rate S/ {{ '%.2f' | format(capa3.run_rate_diario) }}/día
+        · Día {{ dias_transcurridos }}/{{ dias_totales }}
+        {% if capa3.monto_limite %}
+          · {{ capa3.pct_proyectado }}% del límite
+        {% else %}
+          · <span class="text-fin-yellow">Sin límite definido</span>
+        {% endif %}
+      </p>
+    </div>
+
+  </div>
+
+  {# ── Categorías (preview) ─────────────────────────────────────────────── #}
+  {% if categorias %}
+  <div class="bg-surface-card border border-app-border rounded-2xl p-5 mb-6">
+    <h2 class="text-sm font-semibold text-content-primary mb-4">Gastos por categoría</h2>
+    <div class="space-y-3">
+      {% for cat in categorias %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1.5">
+          <span class="font-medium text-content-primary">{{ cat.nombre }}</span>
+          <span class="text-content-muted num">S/ {{ '%.2f' | format(cat.total_pen) }}</span>
+        </div>
+        <div class="h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+          {% set bar_w = [cat.pct_limite, 100] | min %}
+          <div class="h-full rounded-full transition-all duration-500
+                      {{ 'bg-fin-red' if cat.pct_limite > 100 else 'bg-fin-yellow' if cat.pct_limite > 85 else 'bg-accent' }}"
+               style="width: {{ bar_w }}%">
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Transacciones recientes ──────────────────────────────────────────── #}
+  {% if transacciones %}
+  <div class="bg-surface-card border border-app-border rounded-2xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-app-border">
+      <h2 class="text-sm font-semibold text-content-primary">Últimas transacciones</h2>
+    </div>
+    <ul class="divide-y divide-app-border">
+      {% for g in transacciones %}
+      <li class="flex items-center gap-4 px-5 py-3.5">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-content-primary truncate">{{ g.descripcion }}</span>
+            {% if g.es_gasto_unico %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
+                         font-medium bg-surface-elevated text-content-muted border border-app-border
+                         flex-shrink-0"
+                  title="Gasto único — no afecta la proyección mensual">
+              ⚡ único
+            </span>
+            {% endif %}
+            {% if g.recurrente %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
+                         font-medium bg-accent/10 text-accent border border-accent/20 flex-shrink-0">
+              ⟳ rec.
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-content-muted mt-0.5">
+            {{ g.fecha.strftime('%d %b') if g.fecha else '' }}
+            {% if g.categoria %}· {{ g.categoria.nombre }}{% endif %}
+            {% if g.subcategoria %}· {{ g.subcategoria.nombre }}{% endif %}
+          </p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-sm font-semibold text-content-primary num">
+            {{ g.moneda }} {{ '%.2f' | format(g.monto) }}
+          </p>
+          {% if g.moneda == 'USD' %}
+          <p class="text-xs text-content-muted">≈ S/ {{ '%.2f' | format(g.monto * 3.75) }}</p>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="bg-surface-card border border-app-border rounded-2xl p-12 text-center">
+    <p class="text-content-muted text-sm">No hay gastos registrados este mes.</p>
+    <p class="text-content-muted/50 text-xs mt-1">Presiona "Nuevo gasto" para empezar.</p>
+  </div>
+  {% endif %}
+
+{% endblock %}

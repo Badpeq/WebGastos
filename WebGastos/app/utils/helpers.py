@@ -119,7 +119,7 @@ def calcular_dashboard(user_id, presupuesto_id=None):
         total_fijos_pen += monto_cuota
 
     capa2 = {
-        'items':     items_fijos,
+        'lista':     items_fijos,
         'total_pen': round(total_fijos_pen, 2),
     }
 
