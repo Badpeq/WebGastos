@@ -1,0 +1,442 @@
+{#
+  components/capas_deuda.html — Jerarquía visual de las 3 capas de deuda
+  Contexto esperado:
+    capa1       → { total_pen, total_pen_solo, total_usd, gastos_count }
+    capa2       → { lista, total_pen, n_pendientes }
+    capa3       → { proyectado, run_rate_diario, total_unico_pen, pct_proyectado,
+                    estado, monto_limite, ahorro_posible, sobregiro, meta_diaria_ideal }
+    categorias  → [{ nombre, total_pen, gastos_count, pct_limite }]
+    dias_transcurridos, dias_totales, tasa_usd
+#}
+
+{# ── Tokens de color para Capa 3 (dinámicos según semáforo) ──────────────── #}
+{% if capa3.estado == 'verde' %}
+  {% set c3_accent = '#00E5A0' %}
+  {% set c3_text   = 'text-fin-green' %}
+  {% set c3_border = 'border-fin-green/30' %}
+  {% set c3_bg     = 'bg-fin-green/5' %}
+{% elif capa3.estado == 'naranja' %}
+  {% set c3_accent = '#FFB800' %}
+  {% set c3_text   = 'text-fin-yellow' %}
+  {% set c3_border = 'border-fin-yellow/30' %}
+  {% set c3_bg     = 'bg-fin-yellow/5' %}
+{% elif capa3.estado == 'rojo' %}
+  {% set c3_accent = '#FF3B6B' %}
+  {% set c3_text   = 'text-fin-red' %}
+  {% set c3_border = 'border-fin-red/30' %}
+  {% set c3_bg     = 'bg-fin-red/5' %}
+{% else %}
+  {% set c3_accent = '#6C63FF' %}
+  {% set c3_text   = 'text-accent' %}
+  {% set c3_border = 'border-accent/25' %}
+  {% set c3_bg     = 'bg-accent/5' %}
+{% endif %}
+
+{# Gasto corriente = total − únicos (va al run-rate) #}
+{% set corriente_pen = capa1.total_pen - capa3.total_unico_pen %}
+{% set n_items  = capa2.lista | length %}
+{% set n_extra  = n_items - 4 if n_items > 4 else 0 %}
+
+{# ═══════════════════════════════════════════════════════ GRID 3 CAPAS ════ #}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
+
+
+  {# ══════════════════════════════════════════════ CAPA 1 — Lo que ya gastaste #}
+  <div x-data="{ open: false }"
+       class="bg-surface-card border border-app-border rounded-2xl overflow-hidden">
+
+    {# Accent strip superior — neutral #}
+    <div class="h-0.5 bg-gradient-to-r from-app-border/40 via-app-border to-app-border/40"></div>
+
+    <div class="p-5">
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
+        ① Lo que ya gastaste
+      </p>
+
+      {# Número principal #}
+      <p class="text-[2rem] font-extrabold text-content-primary num leading-none">
+        S/ {{ '%.2f' | format(capa1.total_pen) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1.5">
+        {{ capa1.gastos_count }}
+        transacción{{ 'es' if capa1.gastos_count != 1 else '' }} este mes
+        {% if capa1.total_usd > 0 %}· <span class="text-fin-yellow">incl. USD</span>{% endif %}
+      </p>
+
+      {# Mini desglose corriente vs único (siempre visible si hay únicos) #}
+      {% if capa3.total_unico_pen > 0 %}
+      <div class="mt-3 space-y-1.5 text-xs border-t border-app-border pt-3">
+        <div class="flex justify-between items-center">
+          <span class="text-content-muted">Corriente (run-rate)</span>
+          <span class="text-content-primary num font-medium">S/ {{ '%.2f' | format(corriente_pen) }}</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="flex items-center gap-1 text-content-muted">
+            <svg class="w-3 h-3 text-content-muted/60" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M11.983 1.907a.75.75 0 00-1.292-.657l-8.5 9.5A.75.75 0 002.75 12h6.572l-1.305 6.093a.75.75 0 001.292.657l8.5-9.5A.75.75 0 0017.25 8h-6.572l1.305-6.093z"/>
+            </svg>
+            Únicos (no se repiten)
+          </span>
+          <span class="text-content-muted num">S/ {{ '%.2f' | format(capa3.total_unico_pen) }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      {# Toggle desglose — solo si hay algo que mostrar #}
+      {% if capa1.total_usd > 0 or categorias %}
+      <button @click="open = !open"
+              class="mt-4 flex items-center gap-1.5 text-xs text-content-muted
+                     hover:text-content-primary transition-colors">
+        <svg :class="open ? 'rotate-180' : ''"
+             class="w-3.5 h-3.5 transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+        </svg>
+        <span x-text="open ? 'Cerrar' : 'Ver desglose completo'">Ver desglose completo</span>
+      </button>
+
+      {# Panel expandible #}
+      <div x-show="open"
+           x-cloak
+           x-transition:enter="transition ease-out duration-200"
+           x-transition:enter-start="opacity-0 -translate-y-1"
+           x-transition:enter-end="opacity-100 translate-y-0"
+           x-transition:leave="transition ease-in duration-150"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="mt-3 pt-3 border-t border-app-border space-y-4">
+
+        {# Desglose PEN / USD con conversión explícita #}
+        {% if capa1.total_usd > 0 %}
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-2">
+            Desglose por moneda
+          </p>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between items-center">
+              <span class="flex items-center gap-1.5 text-content-muted">
+                <span class="px-1.5 py-0.5 bg-surface-elevated rounded text-[9px] font-bold text-content-muted">
+                  PEN
+                </span>
+                Soles
+              </span>
+              <span class="text-content-primary num font-medium">
+                S/ {{ '%.2f' | format(capa1.total_pen_solo) }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="flex items-center gap-1.5 text-content-muted">
+                <span class="px-1.5 py-0.5 bg-surface-elevated rounded text-[9px] font-bold text-fin-yellow">
+                  USD
+                </span>
+                Dólares × {{ tasa_usd }}
+              </span>
+              <span class="num">
+                <span class="text-content-muted">${{ '%.2f' | format(capa1.total_usd) }}</span>
+                <span class="text-content-primary font-medium ml-1">
+                  ≈ S/ {{ '%.2f' | format(capa1.total_usd * tasa_usd) }}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# Top categorías #}
+        {% if categorias %}
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-2">
+            Top categorías
+          </p>
+          <div class="space-y-2">
+            {% for cat in categorias[:4] %}
+            <div class="flex justify-between items-center text-xs gap-2">
+              <span class="text-content-muted truncate flex-1">{{ cat.nombre }}</span>
+              <div class="w-16 h-1 bg-surface-elevated rounded-full overflow-hidden flex-shrink-0">
+                <div class="h-full rounded-full bg-accent"
+                     style="width: {{ [cat.pct_limite, 100] | min | round }}%"></div>
+              </div>
+              <span class="text-content-primary num flex-shrink-0">
+                S/ {{ '%.0f' | format(cat.total_pen) }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+
+  {# ═════════════════════════════════════ CAPA 2 — Compromisos fijos (checklist) #}
+  <div x-data="{ open: false }"
+       class="bg-surface-card border border-app-border rounded-2xl overflow-hidden">
+
+    {# Accent strip — naranja/amarillo (compromisos pendientes) #}
+    <div class="h-0.5 bg-fin-yellow/50"></div>
+
+    <div class="p-5">
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
+        ② Compromisos fijos
+      </p>
+
+      {# Número principal #}
+      <p class="text-[2rem] font-extrabold text-content-primary num leading-none">
+        S/ {{ '%.2f' | format(capa2.total_pen) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1.5">
+        {% if n_items == 0 %}
+          Sin compromisos registrados
+        {% else %}
+          {{ n_items }} ítem{{ 's' if n_items != 1 else '' }}
+          {% if capa2.n_pendientes > 0 %}
+            · <span class="text-fin-yellow font-medium">
+                {{ capa2.n_pendientes }} pendiente{{ 's' if capa2.n_pendientes != 1 else '' }}
+              </span>
+          {% else %}
+            · <span class="text-fin-green">al día ✓</span>
+          {% endif %}
+        {% endif %}
+      </p>
+
+      {# ── Checklist ─────────────────────────────────────────────────────── #}
+      {% if capa2.lista %}
+
+      <div class="mt-4 space-y-2.5">
+        {% for item in capa2.lista[:4] %}
+
+        <div class="flex items-center gap-2.5
+                    {{ 'opacity-40' if item.aplicado else '' }}">
+
+          {# Ícono de estado del ítem #}
+          {% if item.aplicado %}
+            {# Aplicado: check lleno #}
+            <svg class="w-[18px] h-[18px] flex-shrink-0 text-fin-green"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          {% elif item.aplica %}
+            {# Pendiente: círculo vacío #}
+            <svg class="w-[18px] h-[18px] flex-shrink-0 text-content-muted"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+          {% else %}
+            {# No aplica este mes: punto pequeño muted #}
+            <svg class="w-[18px] h-[18px] flex-shrink-0 text-content-muted/30"
+                 fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="2.5"/>
+            </svg>
+          {% endif %}
+
+          {# Descripción #}
+          <span class="flex-1 text-sm text-content-primary truncate
+                       {{ 'line-through text-content-muted' if item.aplicado else '' }}">
+            {{ item.descripcion }}
+          </span>
+
+          {# Badge: frecuencia o progreso de cuota #}
+          {% if item.tipo == 'cuota' %}
+            <span class="text-[10px] text-content-muted/70 flex-shrink-0 num">
+              {{ item.progreso }}
+            </span>
+          {% elif item.tipo == 'recurrente' and item.frecuencia %}
+            <span class="text-[10px] text-content-muted/50 flex-shrink-0">
+              {{ item.frecuencia | truncate(4, True, '') }}
+            </span>
+          {% endif %}
+
+          {# Monto #}
+          <span class="text-sm font-semibold num flex-shrink-0
+                       {{ 'text-content-muted' if item.aplicado else 'text-content-primary' }}">
+            S/ {{ '%.0f' | format(item.monto_pen) }}
+          </span>
+
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Toggle para ítems restantes (> 4) #}
+      {% if n_extra > 0 %}
+      <button @click="open = !open"
+              class="mt-3.5 flex items-center gap-1.5 text-xs text-content-muted
+                     hover:text-content-primary transition-colors">
+        <svg :class="open ? 'rotate-180' : ''"
+             class="w-3.5 h-3.5 transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+        </svg>
+        <span x-text="open ? 'Ver menos' : 'Ver {{ n_extra }} más'">
+          Ver {{ n_extra }} más
+        </span>
+      </button>
+
+      <div x-show="open"
+           x-cloak
+           x-transition:enter="transition ease-out duration-200"
+           x-transition:enter-start="opacity-0 -translate-y-1"
+           x-transition:enter-end="opacity-100 translate-y-0"
+           x-transition:leave="transition ease-in duration-150"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="mt-3 pt-3 border-t border-app-border space-y-2.5">
+        {% for item in capa2.lista[4:] %}
+        <div class="flex items-center gap-2.5 {{ 'opacity-40' if item.aplicado else '' }}">
+          {% if item.aplicado %}
+          <svg class="w-[18px] h-[18px] flex-shrink-0 text-fin-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {% elif item.aplica %}
+          <svg class="w-[18px] h-[18px] flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="12" r="9"/>
+          </svg>
+          {% else %}
+          <svg class="w-[18px] h-[18px] flex-shrink-0 text-content-muted/30" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="2.5"/>
+          </svg>
+          {% endif %}
+          <span class="flex-1 text-sm text-content-primary truncate {{ 'line-through text-content-muted' if item.aplicado else '' }}">
+            {{ item.descripcion }}
+          </span>
+          {% if item.tipo == 'cuota' %}
+          <span class="text-[10px] text-content-muted/70 flex-shrink-0 num">{{ item.progreso }}</span>
+          {% endif %}
+          <span class="text-sm font-semibold num flex-shrink-0 {{ 'text-content-muted' if item.aplicado else 'text-content-primary' }}">
+            S/ {{ '%.0f' | format(item.monto_pen) }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      {# Empty state #}
+      <p class="mt-4 text-xs text-content-muted/50 italic">
+        Sin cuotas ni recurrentes activos este mes.
+      </p>
+      {% endif %}
+
+    </div>
+  </div>
+
+
+  {# ═══════════════════════════════════ CAPA 3 — Tu destino financiero ══════ #}
+  <div class="border rounded-2xl overflow-hidden {{ c3_border }} {{ c3_bg }}">
+
+    {# Accent strip — color dinámico del semáforo (más grueso que capa 1 y 2) #}
+    <div class="h-1" style="background: {{ c3_accent }}; opacity: 0.8"></div>
+
+    <div class="p-5">
+
+      {# Etiqueta + dot de estado #}
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-2 h-2 rounded-full flex-shrink-0"
+              style="background: {{ c3_accent }}; box-shadow: 0 0 6px {{ c3_accent }}88">
+        </span>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted">
+          ③ Tu destino financiero
+        </p>
+      </div>
+
+      {# NÚMERO GRANDE — mayor jerarquía tipográfica que capa 1/2 #}
+      <p class="text-[2.5rem] font-extrabold num leading-none {{ c3_text }}">
+        S/ {{ '%.2f' | format(capa3.proyectado) }}
+      </p>
+      <p class="text-xs text-content-muted mt-1.5">
+        Proyección run-rate
+        · día {{ dias_transcurridos }}/{{ dias_totales }}
+      </p>
+
+      {# Separador #}
+      <div class="my-4 border-t border-app-border"></div>
+
+      {# Diferencia vs límite mensual #}
+      {% if capa3.monto_limite %}
+
+        {% if capa3.estado == 'rojo' %}
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-fin-red flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.051 3.378c.866-1.5 3.032-1.5 3.898 0l6.354 13.124zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+          <div>
+            <p class="text-sm font-bold text-fin-red num">
+              +S/ {{ '%.2f' | format(capa3.sobregiro) }} sobre el límite
+            </p>
+            <p class="text-xs text-content-muted mt-0.5">
+              Ajusta a S/ {{ '%.0f' | format(capa3.meta_diaria_ideal) }}/día para no sobregirar
+            </p>
+          </div>
+        </div>
+
+        {% elif capa3.estado == 'naranja' %}
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-fin-yellow flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+          <div>
+            <p class="text-sm font-bold text-fin-yellow num">
+              S/ {{ '%.2f' | format(capa3.ahorro_posible) }} de margen
+            </p>
+            <p class="text-xs text-content-muted mt-0.5">
+              Mantén S/ {{ '%.0f' | format(capa3.meta_diaria_ideal) }}/día para zona verde
+            </p>
+          </div>
+        </div>
+
+        {% else %}
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-fin-green flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <p class="text-sm font-bold text-fin-green num">
+              S/ {{ '%.2f' | format(capa3.ahorro_posible) }} bajo el límite
+            </p>
+            <p class="text-xs text-content-muted mt-0.5">
+              Ritmo de S/ {{ '%.0f' | format(capa3.run_rate_diario) }}/día — vas muy bien
+            </p>
+          </div>
+        </div>
+        {% endif %}
+
+      {% else %}
+      {# Sin límite definido #}
+      <div class="space-y-1 text-xs">
+        <p class="text-content-muted">
+          Ritmo actual:
+          <span class="text-content-primary font-semibold num">
+            S/ {{ '%.0f' | format(capa3.run_rate_diario) }}/día
+          </span>
+        </p>
+        <a href="#" class="text-accent hover:underline">
+          Define un límite mensual para activar el semáforo →
+        </a>
+      </div>
+      {% endif %}
+
+      {# Nota gastos únicos excluidos del run-rate #}
+      {% if capa3.total_unico_pen > 0 %}
+      <p class="mt-3.5 text-[11px] text-content-muted/55 leading-snug">
+        Proyección excluye
+        <span class="text-content-muted/80 font-medium num">
+          S/ {{ '%.0f' | format(capa3.total_unico_pen) }}
+        </span>
+        en gastos únicos que no se repetirán este mes.
+      </p>
+      {% endif %}
+
+    </div>
+  </div>
+
+
+</div>{# /grid #}

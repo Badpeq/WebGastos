@@ -42,73 +42,7 @@
 
 
   {# ════════════════════════════════════ 2 · 3 CAPAS DE DEUDA ════════════ #}
-  {# (placeholder hasta el próximo paso; las capas se construyen aquí) #}
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
-    {# -- Capa 1: Lo que ya gastaste ---------------------------------------- #}
-    <div class="bg-surface-card border border-app-border rounded-2xl p-5">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
-        ① Lo que ya gastaste
-      </p>
-      <p class="text-3xl font-extrabold text-content-primary num">
-        S/ {{ '%.2f' | format(capa1.total_pen) }}
-      </p>
-      <p class="text-xs text-content-muted mt-1.5">
-        {{ capa1.gastos_count }}
-        transacción{{ 'es' if capa1.gastos_count != 1 else '' }} este mes
-        {% if capa1.total_usd > 0 %}
-          · incl. ${{ '%.2f' | format(capa1.total_usd) }} USD
-        {% endif %}
-      </p>
-    </div>
-
-    {# -- Capa 2: Compromisos fijos ----------------------------------------- #}
-    <div class="bg-surface-card border border-fin-yellow/20 rounded-2xl p-5">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
-        ② Compromisos fijos
-      </p>
-      <p class="text-3xl font-extrabold text-content-primary num">
-        S/ {{ '%.2f' | format(capa2.total_pen) }}
-      </p>
-      <p class="text-xs text-content-muted mt-1.5">
-        {{ capa2.lista | length }}
-        ítem{{ 's' if capa2.lista | length != 1 else '' }} pendiente{{ 's' if capa2.lista | length != 1 else '' }}
-      </p>
-    </div>
-
-    {# -- Capa 3: Proyectado (repite el número del velocímetro, tipografía ++display) #}
-    {% if capa3.estado == 'verde' %}
-      {% set c3_cls = 'border-fin-green/30 bg-fin-green/5' %}
-      {% set c3_num = 'text-fin-green' %}
-    {% elif capa3.estado == 'naranja' %}
-      {% set c3_cls = 'border-fin-yellow/30 bg-fin-yellow/5' %}
-      {% set c3_num = 'text-fin-yellow' %}
-    {% elif capa3.estado == 'rojo' %}
-      {% set c3_cls = 'border-fin-red/30 bg-fin-red/5' %}
-      {% set c3_num = 'text-fin-red' %}
-    {% else %}
-      {% set c3_cls = 'border-app-border' %}
-      {% set c3_num = 'text-content-primary' %}
-    {% endif %}
-
-    <div class="border rounded-2xl p-5 bg-surface-card {{ c3_cls }}">
-      <p class="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-3">
-        ③ Tu destino financiero
-      </p>
-      <p class="text-3xl font-extrabold num {{ c3_num }}">
-        S/ {{ '%.2f' | format(capa3.proyectado) }}
-      </p>
-      <p class="text-xs text-content-muted mt-1.5">
-        Proyección run-rate · día {{ dias_transcurridos }}/{{ dias_totales }}
-        {% if capa3.monto_limite %}
-          · {{ capa3.pct_proyectado }}% del límite
-        {% else %}
-          · <span class="text-fin-yellow">Define un límite</span>
-        {% endif %}
-      </p>
-    </div>
-
-  </div>
+  {% include 'components/capas_deuda.html' %}
 
 
   {# ════════════════════════════════════ 3 · CATEGORÍAS ════════════════════ #}

@@ -118,9 +118,11 @@ def calcular_dashboard(user_id, presupuesto_id=None):
         })
         total_fijos_pen += monto_cuota
 
+    n_pendientes = sum(1 for it in items_fijos if it['aplica'] and not it['aplicado'])
     capa2 = {
-        'lista':     items_fijos,
-        'total_pen': round(total_fijos_pen, 2),
+        'lista':        items_fijos,
+        'total_pen':    round(total_fijos_pen, 2),
+        'n_pendientes': n_pendientes,
     }
 
     # ── CAPA 3: Proyección y semáforo ─────────────────────────────────────────
