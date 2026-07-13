@@ -420,6 +420,50 @@ a { color: var(--c-primario); text-decoration: none; }
 .desglose .neto-row td { color: var(--c-exito); font-weight: 700; font-size: var(--t-md); }
 .desglose .costo-row td { color: var(--c-primario); font-weight: 700; }
 
+/* ── Foto firmada ─────────────────────────────────── */
+.foto-thumb {
+  width: 40px; height: 40px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--c-exito);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+.foto-thumb:hover { transform: scale(1.08); }
+.btn-foto-ok {
+  color: var(--c-exito);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.foto-full-wrap {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  margin-bottom: var(--sp-2);
+  background: var(--sup-2);
+  text-align: center;
+}
+.foto-full-wrap img {
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+.foto-caption {
+  padding: .5rem var(--sp-2);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  border-top: 1px solid var(--borde);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 /* ── Historial ────────────────────────────────────── */
 .historial-list { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--sp-2); }
 .boleta-row {

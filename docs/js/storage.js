@@ -51,6 +51,10 @@ export function addBoleta(b) {
 
 export const getBoleta = (id) => getBoletas().find(b => b.id === id) || null;
 
+export function updateBoleta(id, changes) {
+  set('boletas', getBoletas().map(b => b.id === id ? { ...b, ...changes } : b));
+}
+
 export function deleteBoleta(id) {
   set('boletas', getBoletas().filter(b => b.id !== id));
 }

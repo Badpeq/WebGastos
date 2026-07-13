@@ -2,7 +2,7 @@ import { calcularBoleta, fmtPeriodo, fmtS, iniciales, LEGAL } from './calculos.j
 import {
   getEmpleador, setEmpleador,
   getTrabajadores, addTrabajador, updateTrabajador, deleteTrabajador, getTrabajador,
-  getBoletas, addBoleta, getBoleta, deleteBoleta,
+  getBoletas, addBoleta, getBoleta, updateBoleta, deleteBoleta,
   getFirmas, setFirmas,
   getConfig, setConfig,
   getUltimoTrabId, setUltimoTrabId,
@@ -597,6 +597,50 @@ function renderBoletaOculta(boleta) {
   </div>`;
 }
 
+// ── Comprimir imagen ───────────────────────────────
+function comprimirImagen(file, maxPx = 1400, calidad = 0.70) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const ratio = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Adjuntar foto firmada ──────────────────────────
+function adjuntarFotoFirmada(id) {
+  const input = document.createElement('input');
+  input.type   = 'file';
+  input.accept = 'image/*';
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    toast('⏳ Procesando imagen…');
+    try {
+      const dataUrl = await comprimirImagen(file);
+      const kb = Math.round((dataUrl.length * 3) / 4 / 1024);
+      updateBoleta(id, { fotoFirmada: dataUrl, fotoFirmadaEn: new Date().toISOString() });
+      renderHistorial();
+      toast(`✅ Foto adjuntada (${kb} KB)`);
+    } catch {
+      toast('⚠ No se pudo procesar la imagen');
+    }
+  });
+  input.click();
+}
+
 // ── Exportar PDF (re-usar boleta guardada) ─────────
 async function exportarPDF(boleta) {
   renderBoletaOculta(boleta);
@@ -609,12 +653,41 @@ async function exportarPDF(boleta) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
-    const mg = 12; const iw = pw - mg*2;
+    const mg = 12; const iw = pw - mg * 2;
     const ih = (canvas.height * iw) / canvas.width;
     doc.addImage(canvas.toDataURL('image/png'), 'PNG', mg, ih <= ph - mg*2 ? (ph-ih)/2 : mg, iw, ih);
+
+    // Página 2: foto firmada (si existe)
+    if (boleta.fotoFirmada) {
+      await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          doc.addPage();
+          const ar  = img.naturalHeight / img.naturalWidth;
+          const iw2 = pw - mg * 2;
+          const ih2 = Math.min(ph - mg * 2 - 16, iw2 * ar);
+          const y2  = mg + 12;
+          // Encabezado página 2
+          doc.setFontSize(8);
+          doc.setTextColor(100);
+          doc.text('DOCUMENTO FÍSICO FIRMADO', pw / 2, mg + 5, { align: 'center' });
+          doc.setDrawColor(200); doc.line(mg, mg + 7, pw - mg, mg + 7);
+          doc.addImage(boleta.fotoFirmada, 'JPEG', mg, y2, iw2, ih2);
+          const fecha = boleta.fotoFirmadaEn
+            ? new Date(boleta.fotoFirmadaEn).toLocaleDateString('es-PE')
+            : '—';
+          doc.setFontSize(7);
+          doc.text(`Adjuntado: ${fecha}`, mg, y2 + ih2 + 5);
+          resolve();
+        };
+        img.src = boleta.fotoFirmada;
+      });
+    }
+
     const nombre = boleta.snapshot?.trabajador?.nombre || 'boleta';
-    doc.save(`Boleta_${nombre.replace(/\s+/g,'_')}_${boleta.periodo || 'sin-periodo'}.pdf`);
-    toast('✅ PDF descargado');
+    const suffix = boleta.fotoFirmada ? '_firmada' : '';
+    doc.save(`Boleta_${nombre.replace(/\s+/g,'_')}_${boleta.periodo || 'sin-periodo'}${suffix}.pdf`);
+    toast(`✅ PDF descargado${boleta.fotoFirmada ? ' (boleta + foto firmada)' : ''}`);
   } catch (err) { toast('⚠ Error PDF: ' + err.message); }
 }
 
@@ -854,15 +927,19 @@ function renderHistorial() {
     const tr     = b.snapshot?.trabajador || {};
     const neto   = b.calculo?.neto || 0;
     const ptxt   = fmtPeriodo(b.periodo, b.frecuencia, b.quincena);
+    const fotoHtml = b.fotoFirmada
+      ? `<img class="foto-thumb" src="${b.fotoFirmada}" title="Ver documento firmado" data-ver="${b.id}" alt="Foto firmada">`
+      : `<button class="btn-ghost btn-sm" data-foto="${b.id}" title="Adjuntar foto del documento firmado">📷</button>`;
     return `
       <div class="boleta-row">
         <div class="boleta-avatar">${iniciales(tr.nombre)}</div>
         <div class="boleta-info">
           <div class="boleta-nombre">${esc(tr.nombre || '—')}</div>
-          <div class="boleta-meta">${ptxt}${b.numero ? ` · N° ${esc(String(b.numero))}` : ''}</div>
+          <div class="boleta-meta">${ptxt}${b.numero ? ` · N° ${esc(String(b.numero))}` : ''}${b.fotoFirmada ? ' · <span style="color:var(--c-exito);font-size:var(--t-xs)">✓ firmada</span>' : ''}</div>
         </div>
         <div class="boleta-neto mono">${fmtS(neto)}</div>
         <div class="boleta-acciones">
+          ${fotoHtml}
           <button class="btn btn-secundario btn-sm" data-ver="${b.id}">Ver</button>
           <button class="btn btn-secundario btn-sm" data-dup="${b.id}">Dup.</button>
           <button class="btn-ghost btn-sm" data-del-b="${b.id}" title="Eliminar">🗑</button>
@@ -898,6 +975,8 @@ function renderHistorial() {
     b.addEventListener('click', () => duplicarBoleta(b.dataset.dup)));
   panel.querySelectorAll('[data-del-b]').forEach(b =>
     b.addEventListener('click', () => confirmarEliminarBoleta(b.dataset.delB)));
+  panel.querySelectorAll('[data-foto]').forEach(b =>
+    b.addEventListener('click', () => adjuntarFotoFirmada(b.dataset.foto)));
 
   actualizarBadgeHistorial();
 }
@@ -909,9 +988,19 @@ function actualizarBadgeHistorial() {
 }
 
 function abrirModalDetalleBoleta(id) {
-  const b = getBoleta(id);
+  let b = getBoleta(id);
   if (!b) return;
   const link = generarLink(b);
+
+  const fotoSeccion = b.fotoFirmada ? `
+    <div class="foto-full-wrap" style="margin-top:var(--sp-2)">
+      <img src="${b.fotoFirmada}" alt="Documento firmado">
+      <div class="foto-caption">
+        <span>Documento físico firmado</span>
+        <span>${b.fotoFirmadaEn ? new Date(b.fotoFirmadaEn).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' }) : ''}</span>
+      </div>
+    </div>` : '';
+
   const m = modal(`
     <div class="modal" role="dialog" style="max-width:560px">
       <div class="modal-hdr">
@@ -931,9 +1020,14 @@ function abrirModalDetalleBoleta(id) {
           <tr><td>Provisiones</td><td class="mono">${fmtS(b.calculo?.prov?.total)}</td></tr>
           <tr class="costo-row"><td>COSTO TOTAL</td><td class="mono">${fmtS(b.calculo?.costoEmpleador)}</td></tr>
         </table>
+        ${fotoSeccion}
       </div>
       <div class="modal-footer" style="flex-wrap:wrap">
         <button class="btn btn-secundario btn-sm" data-cerrar>Cerrar</button>
+        ${b.fotoFirmada
+          ? `<button class="btn btn-secundario btn-sm" id="mbtn-cambiar-foto">Cambiar foto</button>
+             <button class="btn-ghost btn-sm text-peligro" id="mbtn-quitar-foto">Quitar foto</button>`
+          : `<button class="btn btn-secundario btn-sm" id="mbtn-adjuntar-foto">📷 Adjuntar foto</button>`}
         <button class="btn btn-secundario btn-sm" id="mbtn-imprimir">Imprimir</button>
         <button class="btn btn-secundario btn-sm" id="mbtn-compartir">Compartir</button>
         <button class="btn btn-primario btn-sm" id="mbtn-pdf">Descargar PDF</button>
@@ -941,9 +1035,24 @@ function abrirModalDetalleBoleta(id) {
     </div>`);
 
   $$('[data-cerrar]', m).forEach(x => x.addEventListener('click', () => m.remove()));
-  document.getElementById('mbtn-pdf').addEventListener('click', () => exportarPDF(b));
+  document.getElementById('mbtn-pdf').addEventListener('click', () => exportarPDF(getBoleta(id)));
   document.getElementById('mbtn-imprimir').addEventListener('click', () => { m.remove(); imprimirBoleta(b); });
   document.getElementById('mbtn-compartir').addEventListener('click', () => abrirModalCompartir(b, link));
+
+  document.getElementById('mbtn-adjuntar-foto')?.addEventListener('click', () => {
+    m.remove();
+    adjuntarFotoFirmada(id);
+  });
+  document.getElementById('mbtn-cambiar-foto')?.addEventListener('click', () => {
+    m.remove();
+    adjuntarFotoFirmada(id);
+  });
+  document.getElementById('mbtn-quitar-foto')?.addEventListener('click', () => {
+    updateBoleta(id, { fotoFirmada: null, fotoFirmadaEn: null });
+    renderHistorial();
+    m.remove();
+    toast('Foto eliminada');
+  });
 }
 
 function duplicarBoleta(id) {
