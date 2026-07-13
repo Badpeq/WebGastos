@@ -119,7 +119,7 @@ function htmlPaso1() {
           <div class="worker-avatar">${iniciales(t.nombre)}</div>
           <div class="worker-info">
             <div class="worker-nombre">${esc(t.nombre)}</div>
-            <div class="worker-cargo">${esc(t.cargo || '—')}</div>
+            <div class="worker-cargo">${esc(t.cargo || '—')}${t.sueldoBruto ? ` · S/ ${t.sueldoBruto.toFixed(0)}` : ''}</div>
           </div>
         </div>`).join('')
     : `<div class="empty-state">
@@ -146,11 +146,14 @@ function htmlPaso1() {
 
 // ── Paso 2: Datos de pago ──────────────────────────
 function htmlPaso2() {
-  const p = W.pension;
-  const hoy = new Date();
+  const p    = W.pension;
+  const trab = W.trabId ? getTrabajador(W.trabId) : null;
+  const hoy  = new Date();
   const periodoDefault = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
   const numSig = siguienteNumBoleta();
   const numDefault = `${String(numSig).padStart(3,'0')}-${hoy.getFullYear()}`;
+  // Sueldo: calc anterior > sueldo guardado del trabajador > RMV
+  const sueldoDefault = W.calc?.sueldoBruto ?? trab?.sueldoBruto ?? LEGAL.RMV;
 
   return `
     <div class="card"><div class="card-body">
@@ -186,7 +189,7 @@ function htmlPaso2() {
       <div class="field">
         <label class="label">Sueldo mensual bruto (S/)</label>
         <input type="number" id="inp-sueldo" class="input" min="0" step="0.01"
-               value="${W.calc ? W.calc.sueldoBruto : LEGAL.RMV}" placeholder="1025.00">
+               value="${sueldoDefault}" placeholder="1025.00">
         <div id="rmv-warn" class="hint warn hidden">
           ⚠ Menor a la RMV (S/ ${LEGAL.RMV}). Verifica si aplica una modalidad especial.
         </div>
@@ -353,6 +356,13 @@ function bindPaso() {
     $('#btn-nuevo-trab')?.addEventListener('click', () => abrirModalTrabajador());
     $('#btn-siguiente-1')?.addEventListener('click', () => {
       if (!W.trabId) { toast('Selecciona un trabajador'); return; }
+      // Cargar defaults del trabajador solo si no hay un cálculo previo en curso
+      if (!W.calc) {
+        const trab = getTrabajador(W.trabId);
+        if (trab?.pension)               W.pension    = { ...trab.pension };
+        if (trab?.incluyeEssalud != null) W.incluyeEs  = trab.incluyeEssalud;
+        if (trab?.frecuencia)            W.frecuencia = trab.frecuencia;
+      }
       irPaso(2);
     });
   }
@@ -663,7 +673,7 @@ function renderTrabajadores() {
       <div class="trab-avatar">${iniciales(t.nombre)}</div>
       <div class="trab-info">
         <div class="trab-nombre">${esc(t.nombre)}</div>
-        <div class="trab-meta">${esc(t.cargo || '—')} · DNI ${esc(t.dni || '—')}</div>
+        <div class="trab-meta">${esc(t.cargo || '—')} · DNI ${esc(t.dni || '—')}${t.sueldoBruto ? ` · <b>S/ ${t.sueldoBruto.toFixed(2)}</b>` : ' · <span style="color:var(--c-aviso)">sueldo no configurado</span>'}</div>
       </div>
       <div class="flex gap-1">
         <button class="btn btn-secundario btn-sm" data-edit="${t.id}">Editar</button>
@@ -730,6 +740,49 @@ function abrirModalTrabajador(id = null) {
               .map(c => `<option ${t?.modalidad === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </div>
+        <div style="margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--borde)">
+          <div class="upper text-muted mb-2">Condiciones laborales habituales</div>
+          <p class="hint mb-2">Se pre-cargarán en cada nueva boleta de este trabajador.</p>
+          <div class="field">
+            <label class="label">Sueldo mensual bruto (S/)</label>
+            <input class="input" type="number" id="mt-sueldo"
+                   value="${t?.sueldoBruto || ''}" placeholder="${LEGAL.RMV}" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label class="label">Frecuencia de pago</label>
+            <div class="seg" id="mt-frec-seg">
+              <button class="seg-btn ${(!t?.frecuencia || t?.frecuencia === 'mensual') ? 'activo' : ''}" data-mt-frec="mensual">Mensual</button>
+              <button class="seg-btn ${t?.frecuencia === 'quincenal' ? 'activo' : ''}" data-mt-frec="quincenal">Quincenal</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">Sistema pensional</label>
+            <div class="seg" id="mt-pension-seg">
+              <button class="seg-btn ${(!t?.pension || t?.pension?.tipo === 'onp') ? 'activo' : ''}" data-mt-pension="onp">ONP</button>
+              <button class="seg-btn ${t?.pension?.tipo === 'afp' ? 'activo' : ''}" data-mt-pension="afp">AFP</button>
+              <button class="seg-btn ${t?.pension?.tipo === 'ninguno' ? 'activo' : ''}" data-mt-pension="ninguno">Ninguno</button>
+            </div>
+            <div id="mt-afp-wrap" class="${t?.pension?.tipo === 'afp' ? 'field mt-1' : 'hidden'}">
+              <select class="select" id="mt-afp">
+                ${['HABITAT','INTEGRA','PRIMA','PROFUTURO'].map(a =>
+                  `<option value="${a}" ${t?.pension?.afp === a ? 'selected' : ''}>${a}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <div class="toggle-row">
+              <div>
+                <label for="mt-essalud" style="cursor:pointer">EsSalud (9%)</label>
+                <div class="toggle-sub">Incluir en planificación de costos</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="mt-essalud" ${t?.incluyeEssalud !== false ? 'checked' : ''}>
+                <div class="switch-track"><div class="switch-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secundario btn-sm" data-cerrar>Cancelar</button>
@@ -738,15 +791,33 @@ function abrirModalTrabajador(id = null) {
     </div>`);
 
   $$('[data-cerrar]', m).forEach(b => b.addEventListener('click', () => m.remove()));
+
+  // Segmentos en el modal
+  m.querySelectorAll('[data-mt-pension]').forEach(b => b.addEventListener('click', () => {
+    m.querySelectorAll('[data-mt-pension]').forEach(x => x.classList.toggle('activo', x === b));
+    document.getElementById('mt-afp-wrap')?.classList.toggle('hidden', b.dataset.mtPension !== 'afp');
+  }));
+  m.querySelectorAll('[data-mt-frec]').forEach(b => b.addEventListener('click', () => {
+    m.querySelectorAll('[data-mt-frec]').forEach(x => x.classList.toggle('activo', x === b));
+  }));
+
   document.getElementById('mt-guardar').addEventListener('click', () => {
     const nombre = document.getElementById('mt-nombre').value.trim();
     if (!nombre) { toast('⚠ El nombre es obligatorio'); return; }
+    const sueldoRaw = parseFloat(document.getElementById('mt-sueldo').value);
     const data = {
       nombre,
-      dni:       document.getElementById('mt-dni').value.trim(),
-      ingreso:   document.getElementById('mt-ingreso').value,
-      cargo:     document.getElementById('mt-cargo').value,
-      modalidad: document.getElementById('mt-modal').value,
+      dni:            document.getElementById('mt-dni').value.trim(),
+      ingreso:        document.getElementById('mt-ingreso').value,
+      cargo:          document.getElementById('mt-cargo').value,
+      modalidad:      document.getElementById('mt-modal').value,
+      sueldoBruto:    (!isNaN(sueldoRaw) && sueldoRaw > 0) ? sueldoRaw : null,
+      frecuencia:     m.querySelector('#mt-frec-seg .seg-btn.activo')?.dataset.mtFrec || 'mensual',
+      pension: {
+        tipo: m.querySelector('#mt-pension-seg .seg-btn.activo')?.dataset.mtPension || 'onp',
+        afp:  document.getElementById('mt-afp')?.value || 'HABITAT',
+      },
+      incluyeEssalud: document.getElementById('mt-essalud').checked,
     };
     if (id) { updateTrabajador(id, data); toast('✅ Trabajador actualizado'); }
     else    { addTrabajador(data);        toast('✅ Trabajador guardado'); }
@@ -938,74 +1009,155 @@ function exportarHistorialJSON() {
 // ══════════════════════════════════════════════════
 function renderCostos() {
   const panel = document.getElementById('panel-costos');
-  const lista = getBoletas();
+  const f     = fmtS;
 
-  if (!lista.length) {
-    panel.innerHTML = `
-      <div class="empty-state" style="padding-top:var(--sp-6)">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-6"/></svg></div>
-        <h3>Sin datos</h3>
-        <p>Genera boletas para ver la proyección de costos</p>
-      </div>`;
+  // Preferir trabajadores con sueldo configurado
+  const trabsConSueldo = getTrabajadores().filter(t => t.sueldoBruto > 0);
+
+  if (!trabsConSueldo.length) {
+    // Fallback: última boleta si existe
+    const boletas = getBoletas();
+    if (boletas.length) {
+      _renderCostosDeseBoleta(panel, boletas[0], f);
+    } else {
+      panel.innerHTML = `
+        <div class="empty-state" style="padding-top:var(--sp-6)">
+          <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-6"/></svg></div>
+          <h3>Sin datos de planificación</h3>
+          <p>Configura el sueldo en la pestaña Trabajadores para ver la proyección sin necesidad de generar boletas.</p>
+          <button class="btn btn-primario btn-sm" id="btn-ir-trab-c">Configurar trabajadores</button>
+        </div>`;
+      document.getElementById('btn-ir-trab-c')?.addEventListener('click', () => activarTab('trabajadores'));
+    }
     return;
   }
 
-  // Tomar la boleta más reciente como referencia
-  const b = lista[0];
-  const B = b.sueldoBruto;
-  const c = b.calculo;
-  const esONP = b.pension?.tipo === 'onp';
+  // ── Proyección por trabajador ──────────────────
+  const projs = trabsConSueldo.map(t => {
+    const c = calcularBoleta({
+      sueldoBruto:    t.sueldoBruto,
+      pension:        t.pension || { tipo: 'onp' },
+      incluyeEssalud: t.incluyeEssalud !== false,
+    });
+    return { t, c };
+  });
 
-  const remAnual    = B * 12;
-  const essaludAn   = B * LEGAL.ESSALUD * 12;
-  const ctsAn       = B * LEGAL.CTS_F * 12;
-  const gratifAn    = B * LEGAL.GRATIF_F * 12;
-  const vacAn       = B * LEGAL.VAC_F * 12;
-  const pensionAn   = esONP ? B * LEGAL.ONP * 12 : 0;
-  const provTotal   = ctsAn + gratifAn + vacAn;
-  const costoAnual  = remAnual + essaludAn + provTotal;
+  const totMens  = projs.reduce((s, p) => s + p.c.costoEmpleador, 0);
+  const totAnual = totMens * 12;
+  const totNeto  = projs.reduce((s, p) => s + p.c.neto, 0);
+  const n        = projs.length;
 
-  const f = fmtS;
+  const rowsHtml = projs.map(({ t, c }) => {
+    const pension = (t.pension?.tipo || 'onp').toUpperCase();
+    const afpTag  = t.pension?.tipo === 'afp' ? ` ${t.pension.afp}` : '';
+    return `
+      <tr>
+        <td>
+          <b>${esc(t.nombre)}</b><br>
+          <span class="text-muted" style="font-size:.7rem">
+            ${esc(t.cargo || '—')} · ${pension}${afpTag}${!c.incluyeEssalud ? ' · sin EsSalud' : ''}
+          </span>
+        </td>
+        <td class="mono">${f(t.sueldoBruto)}</td>
+        <td class="mono text-peligro">-${f(c.desc.total)}</td>
+        <td class="mono text-exito">${f(c.neto)}</td>
+        <td class="mono">${f(c.essalud)}</td>
+        <td class="mono">${f(c.prov.total)}</td>
+        <td class="mono bold">${f(c.costoEmpleador)}</td>
+        <td class="mono">${f(c.costoEmpleador * 12)}</td>
+      </tr>`;
+  }).join('');
+
   panel.innerHTML = `
     <div class="costos-wrap">
-      <p class="text-muted" style="margin-bottom:var(--sp-3);font-size:var(--t-xs)">
-        Proyección basada en la boleta más reciente · Sueldo mensual: <b>${f(B)}</b>
-        ${!b.incluyeEssalud ? '<span class="banner banner-aviso" style="display:inline;padding:2px 8px">EsSalud no incluido</span>' : ''}
+      <p class="hint mb-2">
+        Basado en el sueldo configurado por trabajador.
+        <button class="btn btn-secundario btn-sm" style="vertical-align:middle;margin-left:4px" id="btn-edit-trab-c">Editar trabajadores</button>
       </p>
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-label">Costo anual total</div>
-          <div class="kpi-val mono">${f(costoAnual)}</div>
-          <div class="kpi-sub">empleador + provisiones</div>
+          <div class="kpi-label">Costo total mensual</div>
+          <div class="kpi-val mono">${f(totMens)}</div>
+          <div class="kpi-sub">${n} trabajador${n > 1 ? 'es' : ''}</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Costo mensual</div>
-          <div class="kpi-val mono">${f(costoAnual / 12)}</div>
-          <div class="kpi-sub">promedio</div>
+          <div class="kpi-label">Costo total anual</div>
+          <div class="kpi-val mono">${f(totAnual)}</div>
+          <div class="kpi-sub">proyectado</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Neto anual</div>
-          <div class="kpi-val mono">${f(c.neto * 12)}</div>
-          <div class="kpi-sub">recibe el trabajador</div>
+          <div class="kpi-label">Neto total mensual</div>
+          <div class="kpi-val mono">${f(totNeto)}</div>
+          <div class="kpi-sub">reciben los trabajadores</div>
         </div>
       </div>
+      <div style="overflow-x:auto">
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Trabajador</th><th>Sueldo</th><th>Descuentos</th>
+              <th>Neto</th><th>EsSalud</th><th>Provisiones</th>
+              <th>Costo/mes</th><th>Costo anual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            ${n > 1 ? `
+            <tr class="tot-row">
+              <td>TOTAL</td>
+              <td class="mono">${f(projs.reduce((s,p)=>s+p.t.sueldoBruto,0))}</td>
+              <td>—</td>
+              <td class="mono">${f(totNeto)}</td>
+              <td class="mono">${f(projs.reduce((s,p)=>s+p.c.essalud,0))}</td>
+              <td class="mono">${f(projs.reduce((s,p)=>s+p.c.prov.total,0))}</td>
+              <td class="mono">${f(totMens)}</td>
+              <td class="mono">${f(totAnual)}</td>
+            </tr>` : ''}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint mt-2">Ley 29351: gratificaciones exentas de EsSalud y aportes previsionales. CTS depósitos en mayo y noviembre.</p>
+    </div>`;
+
+  document.getElementById('btn-edit-trab-c')?.addEventListener('click', () => activarTab('trabajadores'));
+}
+
+function _renderCostosDeseBoleta(panel, b, f) {
+  const B = b.sueldoBruto;
+  const c = b.calculo;
+  const remAnual = B * 12;
+  const essaludAn = B * LEGAL.ESSALUD * 12;
+  const ctsAn    = B * LEGAL.CTS_F    * 12;
+  const gratifAn = B * LEGAL.GRATIF_F * 12;
+  const vacAn    = B * LEGAL.VAC_F    * 12;
+  const costoAnual = remAnual + essaludAn + ctsAn + gratifAn + vacAn;
+
+  panel.innerHTML = `
+    <div class="costos-wrap">
+      <p class="hint mb-2">Basado en la boleta más reciente de <b>${esc(b.snapshot?.trabajador?.nombre || '')}</b>
+        · Para planificación multi-trabajador, configura el sueldo en
+        <button class="btn btn-secundario btn-sm" style="vertical-align:middle" id="btn-ir-trab-fb">Trabajadores</button>
+      </p>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Costo anual</div><div class="kpi-val mono">${f(costoAnual)}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Costo mensual</div><div class="kpi-val mono">${f(costoAnual/12)}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Neto anual</div><div class="kpi-val mono">${f(c.neto*12)}</div></div>
+      </div>
       <table class="cost-table">
-        <thead>
-          <tr>
-            <th>Concepto</th><th>Mensual</th><th>Anual</th><th>%</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Concepto</th><th>Mensual</th><th>Anual</th><th>%</th></tr></thead>
         <tbody>
-          <tr><td>Remuneración bruta</td><td class="mono">${f(B)}</td><td class="mono">${f(remAnual)}</td><td>${pct(remAnual,costoAnual)}</td></tr>
+          <tr><td>Remuneración</td><td class="mono">${f(B)}</td><td class="mono">${f(remAnual)}</td><td>${pct(remAnual,costoAnual)}</td></tr>
           <tr><td>EsSalud (9%)</td><td class="mono">${f(B*LEGAL.ESSALUD)}</td><td class="mono">${f(essaludAn)}</td><td>${pct(essaludAn,costoAnual)}</td></tr>
           <tr><td>CTS</td><td class="mono">${f(B*LEGAL.CTS_F)}</td><td class="mono">${f(ctsAn)}</td><td>${pct(ctsAn,costoAnual)}</td></tr>
           <tr><td>Gratificaciones</td><td class="mono">${f(B*LEGAL.GRATIF_F)}</td><td class="mono">${f(gratifAn)}</td><td>${pct(gratifAn,costoAnual)}</td></tr>
           <tr><td>Vacaciones</td><td class="mono">${f(B*LEGAL.VAC_F)}</td><td class="mono">${f(vacAn)}</td><td>${pct(vacAn,costoAnual)}</td></tr>
-          <tr class="tot-row"><td>COSTO TOTAL EMPLEADOR</td><td class="mono">${f(costoAnual/12)}</td><td class="mono">${f(costoAnual)}</td><td>100%</td></tr>
+          <tr class="tot-row"><td>COSTO TOTAL</td><td class="mono">${f(costoAnual/12)}</td><td class="mono">${f(costoAnual)}</td><td>100%</td></tr>
         </tbody>
       </table>
-      <p class="hint mt-2">Ley 29351: gratificaciones exentas de EsSalud y aportes previsionales. CTS depósitos en mayo y noviembre.</p>
+      <p class="hint mt-2">Ley 29351: gratificaciones exentas de EsSalud y aportes previsionales.</p>
     </div>`;
+
+  document.getElementById('btn-ir-trab-fb')?.addEventListener('click', () => activarTab('trabajadores'));
 }
 
 function pct(n, t) { return t > 0 ? `${(n/t*100).toFixed(1)}%` : '0%'; }
