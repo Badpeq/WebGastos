@@ -962,11 +962,12 @@
                         <th>Bruto (mes)</th>
                         <th>Neto Pagado</th>
                         <th>Tipo</th>
+                        <th>PDF Generado</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="hist-body">
-                    <tr><td colspan="6">
+                    <tr><td colspan="7">
                         <div class="empty">
                             <div class="empty-icon">📋</div>
                             <p>Sin registros. Guarda tu primera boleta.</p>
@@ -1762,9 +1763,19 @@ function exportarPDF() {
     const nota2 = `Proyección calculada sobre remuneración mensual de ${f(B)}. Gratificaciones (julio y diciembre) exentas de EsSalud y aportes previsionales conforme Ley N° 29351. CTS equivale a 15 días de remuneración por año (Art. 12, Ley 27986); se deposita en entidad bancaria autorizada en mayo y noviembre. Vacaciones: 15 días calendario por año de servicio (Art. 14). Los montos son proyecciones referenciales sujetas a variación según días efectivos trabajados y ajustes de remuneración. Generado con NóminaHogar Perú.`;
     doc.text(doc.splitTextToSize(nota2, 177), 16, ay+5);
 
-    // Guardar
-    doc.save(`Boleta_${trNom.replace(/\s+/g,'_')}_${periodoTxt.replace(/\s+/g,'_')}.pdf`);
-    toast('✅ PDF generado y descargado');
+    // Guardar PDF
+    const pdfFilename = `Boleta_${trNom.replace(/\s+/g,'_')}_${periodoTxt.replace(/\s+/g,'_')}.pdf`;
+    doc.save(pdfFilename);
+
+    // Auto-registrar en historial con nombre del archivo y timestamp
+    if (S.calc && S.calc.bruto > 0) {
+        const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+        hist.unshift(_buildRegistro(pdfFilename));
+        localStorage.setItem('nh_hist', JSON.stringify(hist));
+        renderHistorial();
+    }
+
+    toast('✅ PDF generado · boleta registrada en historial');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1807,24 +1818,35 @@ function borrarFirmas() {
 // ══════════════════════════════════════════════════════════════════
 //  HISTORIAL DE PAGOS — localStorage
 // ══════════════════════════════════════════════════════════════════
+
+// Construye el objeto de registro; pdfFilename es null si se guarda
+// manualmente sin exportar, o el nombre del archivo cuando viene
+// desde exportarPDF().
+function _buildRegistro(pdfFilename) {
+    const now = new Date();
+    return {
+        id:          Date.now(),
+        fecha:       now.toLocaleDateString('es-PE'),
+        fechaISO:    now.toISOString(),
+        periodo:     document.getElementById('periodo').value || '—',
+        trab:        document.getElementById('trab-nombre').value || 'Sin nombre',
+        emp:         document.getElementById('emp-nombre').value || '—',
+        cargo:       document.getElementById('trab-cargo').value,
+        frec:        S.calc.frecuencia,
+        quincena:    S.quincena,
+        brutoMes:    S.calc.brutoMensual,
+        neto:        S.calc.neto,
+        costo:       S.calc.costoTotal,
+        sistema:     S.calc.sistema,
+        archivoPDF:  pdfFilename || null,
+        fechaExport: pdfFilename ? now.toLocaleString('es-PE') : null
+    };
+}
+
 function guardarEnHistorial() {
     if (!S.calc || S.calc.bruto === 0) { toast('⚠️ Calcula una nómina primero'); return; }
-
     const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
-    hist.unshift({
-        id:       Date.now(),
-        fecha:    new Date().toLocaleDateString('es-PE'),
-        periodo:  document.getElementById('periodo').value || '—',
-        trab:     document.getElementById('trab-nombre').value || 'Sin nombre',
-        emp:      document.getElementById('emp-nombre').value || '—',
-        cargo:    document.getElementById('trab-cargo').value,
-        frec:     S.calc.frecuencia,
-        quincena: S.quincena,
-        brutoMes: S.calc.brutoMensual,
-        neto:     S.calc.neto,
-        costo:    S.calc.costoTotal,
-        sistema:  S.calc.sistema
-    });
+    hist.unshift(_buildRegistro(null));
     localStorage.setItem('nh_hist', JSON.stringify(hist));
     renderHistorial();
     toast('✅ Boleta guardada en el historial');
@@ -1836,20 +1858,28 @@ function renderHistorial() {
     const tbody = document.getElementById('hist-body');
 
     if (!hist.length) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div><p>Sin registros. Guarda tu primera boleta.</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div><p>Sin registros. Guarda tu primera boleta.</p></div></td></tr>`;
         return;
     }
     tbody.innerHTML = hist.map(r => {
-        const esQ   = r.frec === 'quincenal';
-        const label = esQ ? `Quin. ${r.quincena === 1 ? '1ª' : '2ª'}` : 'Mensual';
-        const cls   = esQ ? 'badge-amber' : 'badge-blue';
+        const esQ    = r.frec === 'quincenal';
+        const label  = esQ ? `Quin. ${r.quincena === 1 ? '1ª' : '2ª'}` : 'Mensual';
+        const cls    = esQ ? 'badge-amber' : 'badge-blue';
         const pLabel = r.periodo !== '—' ? r.periodo : r.fecha;
+
+        // Celda PDF: muestra nombre del archivo + fecha de exportación si existe
+        const pdfCell = r.archivoPDF
+            ? `<span style="color:var(--accent);font-weight:600;font-size:.7rem;word-break:break-all;">📄 ${r.archivoPDF}</span>
+               <br><small style="color:var(--muted)">${r.fechaExport}</small>`
+            : `<span style="color:var(--muted);font-size:.75rem;">—</span>`;
+
         return `<tr>
             <td>${pLabel}</td>
             <td><b>${r.trab}</b><br><small style="color:var(--muted)">${r.cargo}</small></td>
             <td>S/ ${r.brutoMes.toFixed(2)}</td>
             <td><b style="color:var(--green)">S/ ${r.neto.toFixed(2)}</b></td>
             <td><span class="badge ${cls}">${label}</span></td>
+            <td style="min-width:160px">${pdfCell}</td>
             <td><button class="btn-outline-red" onclick="eliminarReg(${r.id})">🗑️</button></td>
         </tr>`;
     }).join('');
