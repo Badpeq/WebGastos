@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tests · calculos.js</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #0f172a; color: #f1f5f9; }
+  h1   { font-size: 1.25rem; margin-bottom: 1rem; color: #818cf8; }
+  .suite { margin-bottom: 2rem; }
+  .suite h2 { font-size: .9rem; color: #94a3b8; border-bottom: 1px solid #334155; padding-bottom: .5rem; margin-bottom: .75rem; }
+  .ok   { color: #34d399; }
+  .fail { color: #f87171; }
+  .row  { padding: .25rem 0; font-size: .85rem; }
+  #resumen { margin-top: 1.5rem; font-size: 1rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>NóminaHogar Perú — Tests calculos.js</h1>
+<div id="output"></div>
+<div id="resumen"></div>
+
+<script type="module">
+import { calcularBoleta, LEGAL, fmtPeriodo, fmtS, iniciales } from '../js/calculos.js';
+
+let total = 0, passed = 0;
+const out = document.getElementById('output');
+
+function assert(desc, expr) {
+  total++;
+  const ok = !!expr;
+  if (ok) passed++;
+  out.insertAdjacentHTML('beforeend',
+    `<div class="row ${ok ? 'ok' : 'fail'}">${ok ? '✓' : '✗'} ${desc}</div>`);
+  if (!ok) console.error('FAIL:', desc);
+}
+
+function cerca(a, b, tol = 0.005) {
+  return Math.abs(a - b) < tol;
+}
+
+// ── Suite 1: ONP mensual con EsSalud ──────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 1 · ONP mensual, EsSalud ON (S=1200)</h2>');
+{
+  const c = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'onp' }, incluyeEssalud: true });
+  assert('neto = 1044', cerca(c.neto, 1044));
+  assert('essalud = 108', cerca(c.essalud, 108));
+  assert('prov.total = 200', cerca(c.prov.total, 200));
+  assert('costoEmpleador = 1508', cerca(c.costoEmpleador, 1508));
+  assert('base = 1200 (mensual)', cerca(c.base, 1200));
+  assert('desc.pension = 156', cerca(c.desc.pension, 156));
+  assert('bajoRMV = false', !c.bajoRMV);
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 2: ONP mensual SIN EsSalud ──────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 2 · ONP mensual, EsSalud OFF (S=1200)</h2>');
+{
+  const c = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'onp' }, incluyeEssalud: false });
+  assert('essalud = 0', c.essalud === 0);
+  assert('costoEmpleador = 1400', cerca(c.costoEmpleador, 1400));
+  assert('neto = 1044 (sin cambio)', cerca(c.neto, 1044));
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 3: RMV warning ───────────────────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 3 · Alerta RMV</h2>');
+{
+  const cBajo = calcularBoleta({ sueldoBruto: 1000, pension: { tipo: 'onp' }, incluyeEssalud: true });
+  assert('S=1000 → bajoRMV = true',  cBajo.bajoRMV);
+  const cOk   = calcularBoleta({ sueldoBruto: 1025, pension: { tipo: 'onp' }, incluyeEssalud: true });
+  assert('S=1025 → bajoRMV = false', !cOk.bajoRMV);
+  const cCero = calcularBoleta({ sueldoBruto: 0, pension: { tipo: 'onp' }, incluyeEssalud: true });
+  assert('S=0 → bajoRMV = false (no mostrar con 0)', !cCero.bajoRMV);
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 4: AFP Habitat ───────────────────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 4 · AFP Habitat (S=1200)</h2>');
+{
+  assert('LEGAL.AFP.HABITAT.comision = 0.0089', LEGAL.AFP.HABITAT.comision === 0.0089);
+  assert('LEGAL.AFP.HABITAT.prima = 0.0184',    LEGAL.AFP.HABITAT.prima === 0.0184);
+  const c = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'afp', afp: 'HABITAT' }, incluyeEssalud: true });
+  const aporte = 1200 * 0.10;
+  const com    = 1200 * 0.0089;
+  const prima  = 1200 * 0.0184;
+  assert('aporte AFP = 120', cerca(c.desc.pension, aporte));
+  assert('comisión AFP = 10.68', cerca(c.desc.comAfp, com));
+  assert('prima AFP = 22.08',   cerca(c.desc.primaAfp, prima));
+  const netoEsp = 1200 - aporte - com - prima;
+  assert('neto AFP correcto', cerca(c.neto, netoEsp));
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 5: Quincenal ────────────────────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 5 · Frecuencia quincenal (S=1200)</h2>');
+{
+  const cm = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'onp' }, incluyeEssalud: true, frecuencia: 'mensual' });
+  const cq = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'onp' }, incluyeEssalud: true, frecuencia: 'quincenal' });
+  assert('base quincenal = base mensual / 2',  cerca(cq.base, cm.base / 2));
+  assert('neto quincenal ≈ neto mensual / 2',  cerca(cq.neto, cm.neto / 2));
+  assert('essalud quincenal = essalud mensual / 2', cerca(cq.essalud, cm.essalud / 2));
+  assert('prov.total quincenal = prov mensual / 2', cerca(cq.prov.total, cm.prov.total / 2));
+  assert('costoEmpleador quincenal = costo mensual / 2', cerca(cq.costoEmpleador, cm.costoEmpleador / 2));
+  assert('diasPeriodo quincenal = 15', cq.diasPeriodo === 15);
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 6: Ningún descuento ──────────────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 6 · Sin sistema pensional</h2>');
+{
+  const c = calcularBoleta({ sueldoBruto: 1200, pension: { tipo: 'ninguno' }, incluyeEssalud: true });
+  assert('neto = bruto cuando ninguno', cerca(c.neto, 1200));
+  assert('desc.total = 0', cerca(c.desc.total, 0));
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Suite 7: fmtPeriodo ────────────────────────────
+out.insertAdjacentHTML('beforeend', '<div class="suite"><h2>Suite 7 · Utilidades</h2>');
+{
+  assert('fmtPeriodo mensual',   fmtPeriodo('2026-07','mensual',1)   === 'Julio 2026');
+  assert('fmtPeriodo quin 1ª',   fmtPeriodo('2026-07','quincenal',1) === '01-15 Julio 2026');
+  assert('fmtPeriodo quin 2ª',   fmtPeriodo('2026-07','quincenal',2) === '16-último Julio 2026');
+  assert('fmtPeriodo undefined → Sin definir', fmtPeriodo('—','mensual',1) === 'Sin definir');
+  assert('iniciales 1 palabra',  iniciales('Rosa')             === 'R');
+  assert('iniciales 2 palabras', iniciales('Rosa Elena')       === 'RE');
+  assert('iniciales vacío → ?',  iniciales('')                 === '?');
+  assert('fmtS',                 fmtS(1044)                   === 'S/ 1044.00');
+}
+out.insertAdjacentHTML('beforeend', '</div>');
+
+// ── Resumen ────────────────────────────────────────
+const r = document.getElementById('resumen');
+const color = passed === total ? '#34d399' : '#f87171';
+r.innerHTML = `<span style="color:${color}">${passed}/${total} tests pasados</span>`;
+if (passed === total) r.insertAdjacentHTML('beforeend', ' ✅ Todo verde');
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+:root {
+  /* Employer theme — violet */
+  --c-primario: #534AB7;
+  --c-primario-hover: #4238A0;
+  --c-primario-lt: #EDE9FF;
+  --c-primario-borde: rgba(83,74,183,.25);
+
+  /* Worker theme — teal */
+  --c-trab: #0F6E56;
+  --c-trab-hover: #0B5843;
+  --c-trab-lt: #E0F4EF;
+
+  /* Semantic */
+  --c-exito: #059669;
+  --c-exito-lt: #ECFDF5;
+  --c-aviso: #D97706;
+  --c-aviso-lt: #FFFBEB;
+  --c-aviso-borde: #FDE68A;
+  --c-peligro: #DC2626;
+  --c-peligro-lt: #FEF2F2;
+
+  /* Neutral surface */
+  --fondo: #F8FAFC;
+  --sup-0: #FFFFFF;
+  --sup-1: #F8FAFC;
+  --sup-2: #F1F5F9;
+
+  /* Borders & text */
+  --borde: #E2E8F0;
+  --borde-fuerte: #CBD5E1;
+  --texto: #0F172A;
+  --texto-2: #334155;
+  --muted: #94A3B8;
+
+  /* Type scale */
+  --t-xs: .8125rem;
+  --t-sm: .9375rem;
+  --t-md: 1.125rem;
+  --t-lg: 1.75rem;
+
+  /* Spacing (8px grid) */
+  --sp-1: .5rem;
+  --sp-2: 1rem;
+  --sp-3: 1.5rem;
+  --sp-4: 2rem;
+  --sp-5: 2.5rem;
+  --sp-6: 3rem;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  /* Shadows */
+  --sh: 0 1px 3px rgba(0,0,0,.07),0 1px 2px -1px rgba(0,0,0,.04);
+  --sh-md: 0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.04);
+  --sh-lg: 0 10px 15px -3px rgba(0,0,0,.09),0 4px 6px -4px rgba(0,0,0,.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0F172A;
+    --sup-0: #1E293B;
+    --sup-1: #0F172A;
+    --sup-2: #1E293B;
+    --borde: #334155;
+    --borde-fuerte: #475569;
+    --texto: #F1F5F9;
+    --texto-2: #CBD5E1;
+    --muted: #64748B;
+    --c-primario-lt: #1E1A3A;
+    --c-trab-lt: #0A2E27;
+    --c-aviso-lt: #1C1608;
+    --c-aviso-borde: #78350F;
+    --c-peligro-lt: #1F0A0A;
+    --c-exito-lt: #042F22;
+  }
+}
