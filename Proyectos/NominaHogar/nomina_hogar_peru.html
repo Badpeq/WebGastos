@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NóminaHogar Perú — Ley 27986</title>
 
-    <!-- jsPDF + AutoTable desde CDN (sin backend, 100% local) -->
+    <!-- jsPDF + AutoTable + html2canvas desde CDN (sin backend, 100% local) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         /* ── VARIABLES DE DISEÑO ─────────────────────────────── */
@@ -359,16 +360,17 @@
         .bar-dot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:.3rem; }
         .bar-legend-item { font-size:.7rem; color:var(--muted); display:flex; align-items:center; }
 
-        /* ── PRINT: muestra solo la boleta centrada en A4 ── */
+        /* ── PRINT: muestra solo la boleta en A4 ── */
         @media print {
-            @page { size:A4 portrait; margin:12mm; }
-            body > *                { display:none !important; }
-            #print-frame            { display:block !important; }
+            @page { size:A4 portrait; margin:14mm; }
+            body > *     { display:none !important; }
+            #print-frame { display:block !important; position:static !important;
+                           padding:0 !important; background:transparent !important; }
         }
         #print-frame {
             display:none;
             position:fixed; inset:0; z-index:9999;
-            background:#fff; padding:16mm;
+            background:#fff; padding:14mm;
         }
 
         /* ── BADGES ──────────────────────────────────────────── */
@@ -1457,191 +1459,59 @@ function setSistema(sis) {
 // ══════════════════════════════════════════════════════════════════
 //  EXPORTAR PDF — jsPDF + AutoTable
 // ══════════════════════════════════════════════════════════════════
-function exportarPDF() {
+async function exportarPDF() {
     if (!S.calc || S.calc.bruto === 0) {
         toast('⚠️ Ingresa el sueldo antes de exportar'); return;
     }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
     const c   = S.calc;
-    const f   = n => `S/ ${n.toFixed(2)}`;
     const g   = id => document.getElementById(id).value || '—';
     const fF  = d => d && d !== '—' ? d.split('-').reverse().join('/') : '—';
-
-    const empNom = g('emp-nombre'), empDNI = g('emp-dni'), empDir = g('emp-dir');
-    const trNom  = g('trab-nombre'), trDNI = g('trab-dni');
-    const cargo  = g('trab-cargo'), modal = g('trab-modalidad'), ingreso = g('trab-ingreso');
+    const trNom      = g('trab-nombre');
     const periodoTxt = g('periodo') !== '—' ? fmtPeriodo(g('periodo'), c.frecuencia, c.quincena) : 'Sin definir';
-    const obs        = document.getElementById('observaciones').value.trim();
-    const numBoleta  = document.getElementById('num-boleta').value.trim();
-    const esQ = c.frecuencia === 'quincenal';
-    const qLabel = c.quincena === 1 ? 'primera (días 1-15)' : 'segunda (días 16 al último)';
-
-    // ── Encabezado ──
-    doc.setFillColor(30,58,95);
-    doc.rect(0,0,210,34,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(16); doc.setFont('helvetica','bold');
-    doc.text(`BOLETA DE PAGO${numBoleta ? `  ·  N° ${numBoleta}` : ''}`, 105, 13, {align:'center'});
-    doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.text('Trabajadores del Hogar — Ley N° 27986', 105, 20, {align:'center'});
-    doc.text(`Período: ${periodoTxt}`, 105, 27, {align:'center'});
-
-    let y = 41;
-
-    // ── Info Empleador / Trabajador ──
-    const colores = [30,58,95];
-    doc.setTextColor(...colores);
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
-    doc.text('DATOS DEL EMPLEADOR', 15, y);
-    doc.text('DATOS DEL TRABAJADOR', 112, y);
-    doc.setDrawColor(...colores); doc.setLineWidth(0.4);
-    doc.line(14, y+1.5, 98, y+1.5);
-    doc.line(111, y+1.5, 196, y+1.5);
-
-    y += 6;
-    const empRows = [['Nombre:', empNom],['DNI:', empDNI],['Domicilio:', empDir]];
-    const trRows  = [['Nombre:', trNom],['DNI:', trDNI],['Cargo:', cargo],['Modalidad:', modal],
-                     ['Ingreso:', fF(ingreso)]];
-    const maxR = Math.max(empRows.length, trRows.length);
-    doc.setTextColor(50,50,50);
-    for (let i = 0; i < maxR; i++) {
-        doc.setFont('helvetica','bold');
-        if (empRows[i]) { doc.setFontSize(7); doc.text(empRows[i][0], 15, y); doc.setFont('helvetica','normal'); doc.text(empRows[i][1], 34, y); }
-        if (trRows[i])  { doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text(trRows[i][0], 112, y); doc.setFont('helvetica','normal'); doc.text(trRows[i][1], 131, y); }
-        y += 4.5;
-    }
-    y += 2;
-
-    // ── Tabla Haberes ──
-    doc.autoTable({
-        startY: y,
-        head: [['CONCEPTO','TIPO','MONTO']],
-        body: [[`Remuneración ${esQ ? 'Quincenal' : 'Mensual'} (${c.diasPeriodo} días)`, 'Haber', f(c.bruto)]],
-        headStyles:{ fillColor:[30,58,95], textColor:255, fontSize:7.5, fontStyle:'bold' },
-        bodyStyles:{ fontSize:7.5 },
-        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:38,halign:'center'}, 2:{cellWidth:38,halign:'right'} },
-        margin:{ left:14, right:14 }, theme:'grid'
-    });
-    y = doc.lastAutoTable.finalY + 2;
-
-    // ── Tabla Descuentos ──
-    const descRows = [];
-    if (c.sistema !== 'NINGUNO') descRows.push([c.desc.lbl, 'Descuento', f(c.desc.pension)]);
-    if (c.sistema === 'AFP') {
-        descRows.push([`Comisión AFP ${c.afp}`, 'Descuento', f(c.desc.comAfp)]);
-        descRows.push(['Prima de Seguro AFP',   'Descuento', f(c.desc.segAfp)]);
-    }
-    if (c.desc.otros > 0) descRows.push(['Adelantos / Otros', 'Descuento', f(c.desc.otros)]);
-    if (!descRows.length) descRows.push(['Sin descuentos en este período', '—', 'S/ 0.00']);
-    descRows.push([{content:'TOTAL DESCUENTOS',styles:{fontStyle:'bold'}}, '', {content:f(c.desc.total),styles:{fontStyle:'bold'}}]);
-
-    doc.autoTable({
-        startY: y,
-        head: [['CONCEPTO','TIPO','MONTO']],
-        body: descRows,
-        headStyles:{ fillColor:[160,30,30], textColor:255, fontSize:7.5, fontStyle:'bold' },
-        bodyStyles:{ fontSize:7.5 },
-        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:38,halign:'center'}, 2:{cellWidth:38,halign:'right'} },
-        margin:{ left:14, right:14 }, theme:'grid'
-    });
-    y = doc.lastAutoTable.finalY + 4;
-
-    // ── Caja Neto ──
-    doc.setFillColor(30,58,95);
-    doc.roundedRect(14, y, 182, 13, 2, 2, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(11); doc.setFont('helvetica','bold');
-    doc.text('NETO A PAGAR:', 20, y+8.5);
-    doc.text(f(c.neto), 195, y+8.5, {align:'right'});
-    y += 18;
-
-    // ── Tabla Aportes Empleador ──
-    doc.autoTable({
-        startY: y,
-        head: [['APORTES Y PROVISIONES DEL EMPLEADOR (Informativos)','FÓRMULA','MONTO']],
-        body: [
-            ['EsSalud (9%) — Seguro de Salud',                      `${f(c.bruto)} × 9%`,               f(c.emp.essalud)],
-            ['Prov. CTS (15 días/año · Art. 12)',                    `${f(c.brutoMensual)}/24 ÷ ${c.divisor}`, f(c.prov.cts)],
-            ['Prov. Gratificaciones (½ jul + ½ dic · Art. 13)',      `${f(c.brutoMensual)}/12 ÷ ${c.divisor}`, f(c.prov.gratif)],
-            ['Prov. Vacaciones (15 días/año · Art. 14)',             `${f(c.brutoMensual)}/24 ÷ ${c.divisor}`, f(c.prov.vac)],
-            [{content:'COSTO TOTAL DEL EMPLEADOR',styles:{fontStyle:'bold'}}, '',
-             {content:f(c.costoTotal),styles:{fontStyle:'bold',textColor:[30,58,95]}}]
-        ],
-        headStyles:{ fillColor:[22,163,74], textColor:255, fontSize:7.5, fontStyle:'bold' },
-        bodyStyles:{ fontSize:7 },
-        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
-        margin:{ left:14, right:14 }, theme:'grid'
-    });
-    y = doc.lastAutoTable.finalY + 4;
-
-    // ── Observaciones (solo si hay texto) ──
-    if (obs) {
-        doc.setFillColor(255, 251, 235);
-        doc.setDrawColor(217, 119, 6);
-        doc.setLineWidth(0.4);
-        doc.roundedRect(14, y, 182, 0, 2, 2, 'S'); // borde superior ámbar
-        doc.rect(14, y, 182, 0, 'S');
-        // Calcular altura necesaria
-        doc.setFontSize(7); doc.setFont('helvetica','normal');
-        const obsLines = doc.splitTextToSize(obs, 173);
-        const obsH = obsLines.length * 4 + 10;
-        doc.setFillColor(255, 251, 235);
-        doc.rect(14, y, 182, obsH, 'F');
-        doc.setDrawColor(253, 211, 77); doc.setLineWidth(0.5);
-        doc.line(14, y, 196, y); // línea superior ámbar
-        doc.setTextColor(146, 64, 14);
-        doc.setFontSize(6.5); doc.setFont('helvetica','bold');
-        doc.text('OBSERVACIONES', 16, y + 5);
-        doc.setFont('helvetica','normal'); doc.setTextColor(60, 60, 60);
-        doc.text(obsLines, 16, y + 10);
-        y += obsH + 6;
-    }
-
-    y += 2;
-
-    // ── Firmas ──
-    const pH = doc.internal.pageSize.getHeight();
-    if (y + 45 > pH - 15) { doc.addPage(); y = 20; }
-
-    doc.setDrawColor(120,120,120); doc.setLineWidth(0.3);
-    doc.line(20,y+32,88,y+32);
-    doc.line(122,y+32,190,y+32);
-    doc.setTextColor(80,80,80); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-    doc.text('Firma del Empleador', 54,y+37,{align:'center'});
-    doc.text(empNom, 54,y+42,{align:'center'});
-    doc.text(`DNI: ${empDNI}`, 54,y+47,{align:'center'});
-    doc.text('Firma del Trabajador', 156,y+37,{align:'center'});
-    doc.text(trNom, 156,y+42,{align:'center'});
-    doc.text(`DNI: ${trDNI}`, 156,y+47,{align:'center'});
-
-    if (S.firmas.emp)  { try { doc.addImage(S.firmas.emp,  'PNG',20,y+8,68,22); } catch(e){} }
-    if (S.firmas.trab) { try { doc.addImage(S.firmas.trab,'PNG',122,y+8,68,22); } catch(e){} }
-    y += 52;
-
-    // ── Nota legal ──
-    doc.setFillColor(248,249,250);
-    doc.rect(14,y,182,20,'F');
-    doc.setFontSize(6); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
-    const nota = `Boleta emitida conforme a la Ley N° 27986 — Ley de los Trabajadores del Hogar y su Reglamento D.S. N° 015-2003-TR. ${esQ ? `Pago correspondiente a la ${qLabel} quincena.` : 'Pago mensual completo (30 días).'} EsSalud (${f(c.emp.essalud)}) y provisiones (CTS, Gratificaciones, Vacaciones) son obligación y costo exclusivo del empleador. CTS se deposita en entidad bancaria autorizada en mayo y noviembre de cada año. Documento generado localmente con NóminaHogar Perú — no requiere firma digital.`;
-    doc.text(doc.splitTextToSize(nota, 177), 16, y+5);
-
-    // La proyección de costo anual es solo ambiente de administrador
-    // (visible en pantalla). El PDF contiene únicamente la boleta.
-
-    // Guardar PDF — solo boleta (1 página)
     const pdfFilename = `Boleta_${trNom.replace(/\s+/g,'_')}_${periodoTxt.replace(/\s+/g,'_')}.pdf`;
-    doc.save(pdfFilename);
 
-    // Auto-registrar en historial con nombre del archivo y timestamp
-    if (S.calc && S.calc.bruto > 0) {
-        const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
-        hist.unshift(_buildRegistro(pdfFilename));
-        localStorage.setItem('nh_hist', JSON.stringify(hist));
-        renderHistorial();
+    toast('⏳ Generando PDF…');
+
+    try {
+        const boletaEl = document.getElementById('boleta');
+
+        // Capturar el HTML renderizado como imagen de alta resolución
+        const canvas = await html2canvas(boletaEl, {
+            scale: 3,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            removeContainer: true
+        });
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const pW     = doc.internal.pageSize.getWidth();
+        const pH     = doc.internal.pageSize.getHeight();
+        const margin = 12;
+        const imgW   = pW - margin * 2;
+        const imgH   = (canvas.height * imgW) / canvas.width;
+
+        // Centrar verticalmente si cabe en una página; si no, desde arriba
+        const yPos = imgH <= pH - margin * 2 ? (pH - imgH) / 2 : margin;
+
+        doc.addImage(canvas.toDataURL('image/png'), 'PNG', margin, yPos, imgW, imgH);
+        doc.save(pdfFilename);
+
+        // Auto-registrar en historial
+        if (S.calc && S.calc.bruto > 0) {
+            const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+            hist.unshift(_buildRegistro(pdfFilename));
+            localStorage.setItem('nh_hist', JSON.stringify(hist));
+            renderHistorial();
+        }
+
+        toast('✅ PDF generado · boleta registrada en historial');
+    } catch (err) {
+        console.error(err);
+        toast('❌ Error al generar PDF: ' + err.message);
     }
-
-    toast('✅ PDF generado · boleta registrada en historial');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1826,34 +1696,9 @@ function imprimirBoleta() {
     const frame  = document.getElementById('print-frame');
     const boleta = document.getElementById('boleta');
 
-    // Copiar el HTML actual de la boleta + los estilos necesarios
-    frame.innerHTML = `
-        <style>
-            * { box-sizing:border-box; margin:0; padding:0; font-family:'Courier New',monospace; }
-            body { background:#fff; }
-            .boleta { border:1px solid #d1d5db; border-radius:6px; overflow:hidden; }
-            .boleta-hdr { background:#1e3a5f; color:#fff; padding:.875rem 1.125rem; text-align:center; }
-            .boleta-hdr h3 { font-size:1rem; font-weight:800; }
-            .boleta-hdr p  { font-size:.65rem; opacity:.8; margin-top:.15rem; }
-            .boleta-periodo { display:inline-block; margin-top:.4rem; background:rgba(255,255,255,.15); padding:.15rem .6rem; border-radius:4px; font-size:.7rem; }
-            .boleta-body { padding:.875rem 1.125rem; }
-            .boleta-sec { margin-bottom:.875rem; }
-            .boleta-sec-title { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#1e3a5f; border-bottom:1.5px solid #1e3a5f; padding-bottom:.2rem; margin-bottom:.4rem; }
-            .boleta-row { display:flex; justify-content:space-between; font-size:.72rem; padding:.15rem 0; color:#333; }
-            .boleta-row.tot { font-weight:800; border-top:1px solid #ccc; padding-top:.3rem; margin-top:.2rem; color:#1e3a5f; }
-            .boleta-neto { background:#1e3a5f; color:#fff; padding:.6rem 1.125rem; display:flex; justify-content:space-between; align-items:center; }
-            .boleta-neto-lbl { font-size:.8rem; font-weight:700; }
-            .boleta-neto-val { font-size:1.2rem; font-weight:800; }
-            .boleta-footer { padding:.75rem 1.125rem; display:grid; grid-template-columns:1fr 1fr; gap:.75rem; border-top:1px solid #eee; }
-            .boleta-firma { text-align:center; }
-            .boleta-firma img { max-height:52px; max-width:100%; object-fit:contain; }
-            .boleta-firma-line { border-top:1px solid #888; padding-top:.2rem; margin-top:1.5rem; font-size:.6rem; color:#666; line-height:1.4; }
-            .boleta-legal { padding:.5rem 1.125rem; background:#f9fafb; border-top:1px solid #eee; font-size:.6rem; color:#94a3b8; text-align:center; line-height:1.5; }
-        </style>
-        <div class="boleta">${boleta.innerHTML}</div>
-    `;
+    // Copiar la boleta tal como está renderizada; el CSS de <head> aplica al mismo documento
+    frame.innerHTML = boleta.outerHTML;
 
-    // Mostrar el frame, imprimir, ocultarlo al terminar
     frame.style.display = 'block';
     window.print();
     window.addEventListener('afterprint', () => {
