@@ -521,6 +521,19 @@
                     <input class="form-control" id="periodo" type="month">
                 </div>
             </div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">N° de Boleta</label>
+                    <input class="form-control" id="num-boleta" type="text" placeholder="Ej: 001-2026">
+                    <p class="hint">Se imprime en el encabezado de la boleta.</p>
+                </div>
+                <div class="form-group" style="display:flex; flex-direction:column; justify-content:flex-end;">
+                    <button class="btn btn-outline" style="width:100%; margin-bottom:1.55rem;"
+                            onclick="autoNumerarBoleta()">
+                        🔢 Autonumerar
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- ── CONFIGURACIÓN DE PAGO ── -->
@@ -1194,6 +1207,7 @@ function actualizarBoleta(c) {
     const trNombre  = g('trab-nombre'), trDNI = g('trab-dni');
     const cargo     = g('trab-cargo'), modal = g('trab-modalidad'), ingreso = g('trab-ingreso');
     const periodo   = g('periodo');
+    const numBoleta = document.getElementById('num-boleta').value.trim();
     const obs       = document.getElementById('observaciones').value.trim();
     const periodoTxt = periodo !== '—' ? fmtPeriodo(periodo, c.frecuencia, c.quincena) : 'Sin definir';
 
@@ -1218,7 +1232,7 @@ function actualizarBoleta(c) {
 
     document.getElementById('boleta').innerHTML = `
         <div class="boleta-hdr">
-            <h3>BOLETA DE PAGO</h3>
+            <h3>BOLETA DE PAGO${numBoleta ? ` &nbsp;·&nbsp; N° ${numBoleta}` : ''}</h3>
             <p>Trabajadores del Hogar · Ley N° 27986</p>
             <span class="boleta-periodo">Período: ${periodoTxt}</span>
         </div>
@@ -1458,7 +1472,8 @@ function exportarPDF() {
     const trNom  = g('trab-nombre'), trDNI = g('trab-dni');
     const cargo  = g('trab-cargo'), modal = g('trab-modalidad'), ingreso = g('trab-ingreso');
     const periodoTxt = g('periodo') !== '—' ? fmtPeriodo(g('periodo'), c.frecuencia, c.quincena) : 'Sin definir';
-    const obs    = document.getElementById('observaciones').value.trim();
+    const obs        = document.getElementById('observaciones').value.trim();
+    const numBoleta  = document.getElementById('num-boleta').value.trim();
     const esQ = c.frecuencia === 'quincenal';
     const qLabel = c.quincena === 1 ? 'primera (días 1-15)' : 'segunda (días 16 al último)';
 
@@ -1467,7 +1482,7 @@ function exportarPDF() {
     doc.rect(0,0,210,34,'F');
     doc.setTextColor(255,255,255);
     doc.setFontSize(16); doc.setFont('helvetica','bold');
-    doc.text('BOLETA DE PAGO', 105, 13, {align:'center'});
+    doc.text(`BOLETA DE PAGO${numBoleta ? `  ·  N° ${numBoleta}` : ''}`, 105, 13, {align:'center'});
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.text('Trabajadores del Hogar — Ley N° 27986', 105, 20, {align:'center'});
     doc.text(`Período: ${periodoTxt}`, 105, 27, {align:'center'});
@@ -1829,6 +1844,7 @@ function _buildRegistro(pdfFilename) {
         fecha:       now.toLocaleDateString('es-PE'),
         fechaISO:    now.toISOString(),
         periodo:     document.getElementById('periodo').value || '—',
+        numBoleta:   document.getElementById('num-boleta').value.trim() || null,
         trab:        document.getElementById('trab-nombre').value || 'Sin nombre',
         emp:         document.getElementById('emp-nombre').value || '—',
         cargo:       document.getElementById('trab-cargo').value,
@@ -1841,6 +1857,21 @@ function _buildRegistro(pdfFilename) {
         archivoPDF:  pdfFilename || null,
         fechaExport: pdfFilename ? now.toLocaleString('es-PE') : null
     };
+}
+
+// Sugiere el siguiente número correlativo basándose en el historial guardado
+function autoNumerarBoleta() {
+    const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    const nums = hist
+        .map(r => r.numBoleta)
+        .filter(Boolean)
+        .map(n => parseInt(n.replace(/\D/g,''), 10))
+        .filter(n => !isNaN(n));
+    const siguiente = nums.length ? Math.max(...nums) + 1 : 1;
+    const año = new Date().getFullYear();
+    document.getElementById('num-boleta').value = `${String(siguiente).padStart(3,'0')}-${año}`;
+    recalcular();
+    toast(`🔢 Número asignado: ${document.getElementById('num-boleta').value}`);
 }
 
 function guardarEnHistorial() {
@@ -1865,7 +1896,10 @@ function renderHistorial() {
         const esQ    = r.frec === 'quincenal';
         const label  = esQ ? `Quin. ${r.quincena === 1 ? '1ª' : '2ª'}` : 'Mensual';
         const cls    = esQ ? 'badge-amber' : 'badge-blue';
-        const pLabel = r.periodo !== '—' ? r.periodo : r.fecha;
+        const pLabel = [
+            r.periodo !== '—' ? r.periodo : r.fecha,
+            r.numBoleta ? `<small style="color:var(--muted)">N° ${r.numBoleta}</small>` : ''
+        ].filter(Boolean).join('<br>');
 
         // Celda PDF: muestra nombre del archivo + fecha de exportación si existe
         const pdfCell = r.archivoPDF
@@ -2015,7 +2049,7 @@ function init() {
     // Listeners de recálculo en tiempo real
     ['sueldo','otros-desc','emp-nombre','emp-dni','emp-dir',
      'trab-nombre','trab-dni','trab-cargo','trab-modalidad',
-     'trab-ingreso','periodo','observaciones']
+     'trab-ingreso','periodo','observaciones','num-boleta']
     .forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', recalcular);
