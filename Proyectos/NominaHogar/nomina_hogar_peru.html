@@ -302,6 +302,63 @@
         .btn-print { background:#475569; color:#fff; }
         .btn-print:hover { background:#334155; transform:translateY(-1px); box-shadow:0 4px 8px rgba(0,0,0,.2); }
 
+        /* ── TABLA ANUAL ─────────────────────────────────────── */
+        .anual-grid {
+            max-width:1380px; margin:0 auto;
+            padding:0 1.25rem 1.25rem;
+        }
+        .anual-hero {
+            display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;
+            margin-bottom:1.25rem;
+        }
+        @media(max-width:700px){ .anual-hero{ grid-template-columns:1fr; } }
+        .anual-hero-box {
+            border-radius:var(--radius); padding:1rem 1.25rem;
+            display:flex; flex-direction:column; gap:.2rem;
+        }
+        .anual-hero-box.primary { background:linear-gradient(135deg,var(--navy),var(--accent)); color:#fff; }
+        .anual-hero-box.green   { background:linear-gradient(135deg,#14532d,var(--green)); color:#fff; }
+        .anual-hero-box.amber   { background:linear-gradient(135deg,#78350f,var(--amber)); color:#fff; }
+        .anual-hero-lbl { font-size:.65rem; opacity:.75; text-transform:uppercase; letter-spacing:.05em; }
+        .anual-hero-val { font-size:1.5rem; font-weight:800; }
+        .anual-hero-sub { font-size:.7rem; opacity:.65; }
+
+        .anual-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+        .anual-table th {
+            padding:.5rem .75rem; text-align:left;
+            background:var(--bg); color:var(--muted);
+            font-size:.65rem; text-transform:uppercase; font-weight:700;
+            border-bottom:1px solid var(--border);
+        }
+        .anual-table th:last-child { text-align:right; }
+        .anual-table td { padding:.45rem .75rem; border-bottom:1px solid var(--border); color:var(--text); }
+        .anual-table td:last-child { text-align:right; font-weight:600; }
+        .anual-table td:nth-child(2) { color:var(--muted); font-size:.75rem; }
+        .anual-table tr:hover td { background:var(--bg); }
+        .anual-table tr.section-hdr td {
+            background:var(--bg); font-size:.65rem; font-weight:700;
+            text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+            padding:.35rem .75rem; border-bottom:none;
+        }
+        .anual-table tr.subtotal td {
+            font-weight:700; background:#f8fafc;
+            border-top:1.5px solid var(--border); border-bottom:1.5px solid var(--border);
+        }
+        .anual-table tr.grand-total td {
+            font-size:.9rem; font-weight:800;
+            background:var(--navy); color:#fff;
+            border:none;
+        }
+        .anual-table tr.grand-total td:nth-child(2) { color:rgba(255,255,255,.6); font-size:.75rem; }
+        .neg-anual { color:var(--red) !important; }
+        .pos-anual { color:var(--green) !important; }
+
+        .bar-wrap { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-top:.75rem; gap:1px; }
+        .bar-seg   { height:100%; transition:width .4s ease; }
+        .bar-legend { display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin-top:.5rem; }
+        .bar-dot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:.3rem; }
+        .bar-legend-item { font-size:.7rem; color:var(--muted); display:flex; align-items:center; }
+
         /* ── PRINT: muestra solo la boleta centrada en A4 ── */
         @media print {
             @page { size:A4 portrait; margin:12mm; }
@@ -682,6 +739,162 @@
 
 </div><!-- /main-grid -->
 
+<!-- ████████████████  COSTO ANUAL PROYECTADO  ████████████████ -->
+<div class="anual-grid">
+    <div class="card">
+        <div class="card-title">Proyección de Costo Anual</div>
+
+        <!-- KPIs superiores -->
+        <div class="anual-hero">
+            <div class="anual-hero-box primary">
+                <span class="anual-hero-lbl">Costo Total Anual · Empleador</span>
+                <span class="anual-hero-val" id="an-costo-total">S/ 0.00</span>
+                <span class="anual-hero-sub">Rem. + Gratif. + EsSalud + CTS + Vacaciones</span>
+            </div>
+            <div class="anual-hero-box green">
+                <span class="anual-hero-lbl">Neto Anual · Trabajador</span>
+                <span class="anual-hero-val" id="an-neto-total">S/ 0.00</span>
+                <span class="anual-hero-sub" id="an-neto-sub">12 sueldos netos + gratificaciones</span>
+            </div>
+            <div class="anual-hero-box amber">
+                <span class="anual-hero-lbl">Costo Mensual Promedio</span>
+                <span class="anual-hero-val" id="an-costo-mes">S/ 0.00</span>
+                <span class="anual-hero-sub">Costo anual ÷ 12</span>
+            </div>
+        </div>
+
+        <!-- Barra de composición -->
+        <div style="margin-bottom:1.25rem;">
+            <div style="font-size:.7rem; color:var(--muted); margin-bottom:.35rem; font-weight:600;">
+                Composición del costo anual
+            </div>
+            <div class="bar-wrap" id="an-bar">
+                <div class="bar-seg" id="bar-rem"   style="background:#2563eb;"></div>
+                <div class="bar-seg" id="bar-gratif" style="background:#7c3aed;"></div>
+                <div class="bar-seg" id="bar-es"    style="background:#16a34a;"></div>
+                <div class="bar-seg" id="bar-cts"   style="background:#d97706;"></div>
+                <div class="bar-seg" id="bar-vac"   style="background:#dc2626;"></div>
+            </div>
+            <div class="bar-legend">
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#2563eb"></span>Remuneración</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#7c3aed"></span>Gratificaciones</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#16a34a"></span>EsSalud</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#d97706"></span>CTS</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#dc2626"></span>Vacaciones</span>
+            </div>
+        </div>
+
+        <!-- Tabla detallada -->
+        <div style="overflow-x:auto;">
+            <table class="anual-table">
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Concepto</th>
+                        <th style="width:30%;">Fórmula</th>
+                        <th style="width:25%;">Monto Anual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- HABERES -->
+                    <tr class="section-hdr"><td colspan="3">Haberes del Trabajador</td></tr>
+                    <tr>
+                        <td>Remuneración (12 meses)</td>
+                        <td id="an-f-rem"></td>
+                        <td id="an-rem">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Gratificación Julio <small style="color:var(--muted);">(½ sueldo · Art. 13)</small></td>
+                        <td id="an-f-gjul"></td>
+                        <td id="an-gjul">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Gratificación Diciembre <small style="color:var(--muted);">(½ sueldo · Art. 13)</small></td>
+                        <td id="an-f-gdic"></td>
+                        <td id="an-gdic">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Haberes Brutos</td>
+                        <td></td>
+                        <td id="an-tot-hab">S/ 0.00</td>
+                    </tr>
+                    <!-- DESCUENTOS -->
+                    <tr class="section-hdr"><td colspan="3">Descuentos al Trabajador</td></tr>
+                    <tr>
+                        <td id="an-lbl-pension">Retención ONP — 12 meses</td>
+                        <td id="an-f-pension"></td>
+                        <td class="neg-anual" id="an-pension">- S/ 0.00</td>
+                    </tr>
+                    <tr id="an-row-afpcom" style="display:none;">
+                        <td id="an-lbl-afpcom">Comisión AFP — 12 meses</td>
+                        <td id="an-f-afpcom"></td>
+                        <td class="neg-anual" id="an-afpcom">- S/ 0.00</td>
+                    </tr>
+                    <tr id="an-row-afpseg" style="display:none;">
+                        <td>Prima de Seguro AFP — 12 meses</td>
+                        <td id="an-f-afpseg"></td>
+                        <td class="neg-anual" id="an-afpseg">- S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="font-size:.7rem; color:var(--muted); font-style:italic;">
+                            Gratificaciones exentas de descuentos · Ley 29351
+                        </td>
+                        <td style="color:var(--muted); font-size:.75rem;">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Descuentos</td>
+                        <td></td>
+                        <td class="neg-anual" id="an-tot-desc">- S/ 0.00</td>
+                    </tr>
+                    <!-- NETO ANUAL -->
+                    <tr class="grand-total">
+                        <td>Neto Anual al Trabajador</td>
+                        <td id="an-f-neto"></td>
+                        <td class="pos-anual" id="an-neto" style="color:#86efac !important;">S/ 0.00</td>
+                    </tr>
+                    <!-- APORTES EMPLEADOR -->
+                    <tr class="section-hdr"><td colspan="3">Aportes y Provisiones — Empleador</td></tr>
+                    <tr>
+                        <td>EsSalud 9% — 12 meses <small style="color:var(--muted);">(Ley 26790)</small></td>
+                        <td id="an-f-es"></td>
+                        <td id="an-es">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>CTS — depósito anual <small style="color:var(--muted);">(Art. 12 · 15 días/año)</small></td>
+                        <td id="an-f-cts"></td>
+                        <td id="an-cts">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Vacaciones — 15 días/año <small style="color:var(--muted);">(Art. 14)</small></td>
+                        <td id="an-f-vac"></td>
+                        <td id="an-vac">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Aportes + Provisiones</td>
+                        <td></td>
+                        <td id="an-tot-ap">S/ 0.00</td>
+                    </tr>
+                    <!-- COSTO TOTAL -->
+                    <tr class="grand-total">
+                        <td>Costo Total Anual · Empleador</td>
+                        <td id="an-f-costo"></td>
+                        <td id="an-costo" style="color:#fff !important;">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Costo Mensual Promedio</td>
+                        <td style="color:var(--muted); font-size:.75rem;">Costo anual ÷ 12</td>
+                        <td style="font-weight:700;" id="an-costo-prom">S/ 0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="hint" style="margin-top:.75rem;">
+            * Gratificaciones exentas de EsSalud y aportes previsionales · Ley 29351.
+            CTS se deposita en mayo y noviembre. Vacaciones se otorgan después del primer año de servicio.
+        </p>
+    </div>
+</div>
+
 <!-- ████████████████  BOTTOM GRID: FIRMA + HISTORIAL  ████████████████ -->
 <div class="bottom-grid">
 
@@ -911,6 +1124,7 @@ function recalcular() {
 
     actualizarResumen(c);
     actualizarBoleta(c);
+    actualizarAnual(c);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1075,6 +1289,114 @@ function actualizarBoleta(c) {
             EsSalud (${f(c.emp.essalud)}) a cargo exclusivo del empleador.
         </div>
     `;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TABLA DE COSTO ANUAL PROYECTADO
+//  ─────────────────────────────────────────────────────────────────
+//  Siempre proyecta sobre el BRUTO MENSUAL completo, independiente
+//  de la frecuencia de pago seleccionada (ese detalle es operativo,
+//  el costo anual es el mismo con 12 o 24 pagos).
+//
+//  Ley 29351: las gratificaciones están exentas de aportes a EsSalud
+//  y de retenciones previsionales (ONP/AFP), por lo que el cálculo
+//  aplica descuentos solo sobre los 12 meses de remuneración ordinaria.
+// ══════════════════════════════════════════════════════════════════
+function actualizarAnual(c) {
+    const B  = c.brutoMensual;           // sueldo mensual base
+    const f  = n => `S/ ${n.toFixed(2)}`;
+    const ff = n => `- S/ ${n.toFixed(2)}`;
+    const pct = (n, t) => t > 0 ? `${(n/t*100).toFixed(1)}%` : '0%';
+
+    // ── HABERES ──
+    const rem     = B * 12;              // remuneración 12 meses
+    const gratJul = B * 0.5;            // ½ sueldo julio   · Art. 13
+    const gratDic = B * 0.5;            // ½ sueldo diciembre
+    const totHab  = rem + gratJul + gratDic; // = B × 13
+
+    // ── DESCUENTOS (solo sobre remuneración ordinaria · Ley 29351) ──
+    // Gratificaciones exentas de ONP/AFP y EsSalud desde Ley 29351
+    const pensionMes  = c.desc.pension;
+    const comAfpMes   = c.desc.comAfp;
+    const segAfpMes   = c.desc.segAfp;
+    const anPension   = pensionMes  * 12;
+    const anComAfp    = comAfpMes   * 12;
+    const anSegAfp    = segAfpMes   * 12;
+    const totDesc     = anPension + anComAfp + anSegAfp;
+
+    // ── NETO ANUAL ──
+    // Neto ordinario (12 meses) + gratificaciones (íntegras, sin descuento)
+    const netoAnual = (c.neto * 12) + gratJul + gratDic;
+
+    // ── APORTES EMPLEADOR ──
+    // EsSalud también aplica solo sobre remuneración ordinaria · Ley 29351
+    const esAnual  = (B * LEGAL.ESSALUD) * 12;
+    const ctsAnual = B * LEGAL.CTS_F    * 12;  // = B / 24 × 12 = B / 2
+    const vacAnual = B * LEGAL.VAC_F    * 12;  // = B / 24 × 12 = B / 2
+    const totAp    = esAnual + ctsAnual + vacAnual;
+
+    // ── TOTALES ──
+    const costoTotal = rem + gratJul + gratDic + esAnual + ctsAnual + vacAnual;
+    const costoMes   = costoTotal / 12;
+
+    // ── ACTUALIZAR DOM ──
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    // KPIs
+    set('an-costo-total', f(costoTotal));
+    set('an-neto-total',  f(netoAnual));
+    set('an-neto-sub',    `${c.sistema !== 'NINGUNO' ? '12 sueldos netos + ' : ''}gratificaciones íntegras`);
+    set('an-costo-mes',   f(costoMes));
+
+    // Haberes
+    set('an-f-rem',   `${f(B)} × 12`);        set('an-rem',   f(rem));
+    set('an-f-gjul',  `${f(B)} × ½`);         set('an-gjul',  f(gratJul));
+    set('an-f-gdic',  `${f(B)} × ½`);         set('an-gdic',  f(gratDic));
+    set('an-tot-hab', f(totHab));
+
+    // Descuentos
+    const esAFP = c.sistema === 'AFP';
+    const esNing = c.sistema === 'NINGUNO';
+    set('an-lbl-pension', esNing ? 'Sin retención previsional' : c.desc.lbl.replace('(', '— 12 meses ('));
+    set('an-f-pension',   esNing ? '—' : `${f(pensionMes)} × 12`);
+    set('an-pension',     esNing ? 'S/ 0.00' : ff(anPension));
+    document.getElementById('an-row-afpcom').style.display = esAFP ? 'table-row' : 'none';
+    document.getElementById('an-row-afpseg').style.display = esAFP ? 'table-row' : 'none';
+    set('an-lbl-afpcom',  `Comisión AFP ${c.afp} — 12 meses`);
+    set('an-f-afpcom',    `${f(comAfpMes)} × 12`);
+    set('an-afpcom',      ff(anComAfp));
+    set('an-f-afpseg',    `${f(segAfpMes)} × 12`);
+    set('an-afpseg',      ff(anSegAfp));
+    set('an-tot-desc',    ff(totDesc));
+
+    // Neto
+    set('an-f-neto', `${f(c.neto)} × 12 + ${f(gratJul + gratDic)}`);
+    set('an-neto',   f(netoAnual));
+    set('an-neto-total', f(netoAnual));
+
+    // Aportes empleador
+    set('an-f-es',   `${f(B * LEGAL.ESSALUD)} × 12`); set('an-es',  f(esAnual));
+    set('an-f-cts',  `${f(B)} ÷ 2`);                  set('an-cts', f(ctsAnual));
+    set('an-f-vac',  `${f(B)} ÷ 2`);                  set('an-vac', f(vacAnual));
+    set('an-tot-ap', f(totAp));
+
+    // Grand totals
+    set('an-f-costo',    `${f(B)} × 13 + EsSalud + CTS + Vac.`);
+    set('an-costo',      f(costoTotal));
+    set('an-costo-prom', f(costoMes));
+
+    // Barra de composición proporcional
+    const segs = [
+        { id:'bar-rem',    val: rem     },
+        { id:'bar-gratif', val: gratJul + gratDic },
+        { id:'bar-es',     val: esAnual  },
+        { id:'bar-cts',    val: ctsAnual },
+        { id:'bar-vac',    val: vacAnual }
+    ];
+    segs.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (el) el.style.width = costoTotal > 0 ? pct(s.val, costoTotal) : '0%';
+    });
 }
 
 // ══════════════════════════════════════════════════════════════════
