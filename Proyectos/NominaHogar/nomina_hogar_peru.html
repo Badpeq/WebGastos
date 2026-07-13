@@ -1610,6 +1610,158 @@ function exportarPDF() {
     const nota = `Boleta emitida conforme a la Ley N° 27986 — Ley de los Trabajadores del Hogar y su Reglamento D.S. N° 015-2003-TR. ${esQ ? `Pago correspondiente a la ${qLabel} quincena.` : 'Pago mensual completo (30 días).'} EsSalud (${f(c.emp.essalud)}) y provisiones (CTS, Gratificaciones, Vacaciones) son obligación y costo exclusivo del empleador. CTS se deposita en entidad bancaria autorizada en mayo y noviembre de cada año. Documento generado localmente con NóminaHogar Perú — no requiere firma digital.`;
     doc.text(doc.splitTextToSize(nota, 177), 16, y+5);
 
+    // ══════════════════════════════════════════════════════════════
+    // PÁGINA 2 — PROYECCIÓN DE COSTO ANUAL
+    // ══════════════════════════════════════════════════════════════
+    doc.addPage();
+    const B       = c.brutoMensual;
+    const rem     = B * 12;
+    const gratJul = B * 0.5;
+    const gratDic = B * 0.5;
+    const totHab  = rem + gratJul + gratDic;
+    const anPen   = c.desc.pension  * 12;
+    const anCom   = c.desc.comAfp   * 12;
+    const anSeg   = c.desc.segAfp   * 12;
+    const totDesc = anPen + anCom + anSeg;
+    const netoAn  = (c.neto * 12) + gratJul + gratDic;
+    const esAn    = (B * LEGAL.ESSALUD) * 12;
+    const ctsAn   = B * LEGAL.CTS_F * 12;
+    const vacAn   = B * LEGAL.VAC_F * 12;
+    const totAp   = esAn + ctsAn + vacAn;
+    const costoAn = totHab + esAn + ctsAn + vacAn;
+    const costoMp = costoAn / 12;
+
+    // ── Encabezado página 2 ──
+    doc.setFillColor(30,58,95);
+    doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('PROYECCIÓN DE COSTO ANUAL', 105, 12, {align:'center'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(`${trNom} · Remuneración mensual: ${f(B)} · ${periodoTxt}`, 105, 20, {align:'center'});
+
+    let ay = 34;
+
+    // ── KPI boxes (3 columnas) ──
+    const boxes = [
+        { lbl:'Costo Total Anual · Empleador', val:f(costoAn), sub:'Rem. + Gratif. + EsSalud + CTS + Vac.', r:30,g:58,b:95 },
+        { lbl:'Neto Anual · Trabajador',        val:f(netoAn),  sub:'12 sueldos netos + gratificaciones íntegras', r:20,g:100,b:60 },
+        { lbl:'Costo Mensual Promedio',          val:f(costoMp), sub:'Costo anual ÷ 12', r:180,g:100,b:10 }
+    ];
+    const bw = 59, bh = 20, gap = 2;
+    boxes.forEach((bx, i) => {
+        const bx0 = 14 + i*(bw+gap);
+        doc.setFillColor(bx.r, bx.g, bx.b);
+        doc.roundedRect(bx0, ay, bw, bh, 2, 2, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(6); doc.setFont('helvetica','normal');
+        doc.text(bx.lbl.toUpperCase(), bx0+3, ay+5);
+        doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text(bx.val, bx0+3, ay+13);
+        doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+        doc.text(bx.sub, bx0+3, ay+18, {maxWidth: bw-4});
+    });
+    ay += bh + 6;
+
+    // ── Tabla Haberes Anuales ──
+    doc.autoTable({
+        startY: ay,
+        head: [['HABERES ANUALES DEL TRABAJADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: [
+            [`Remuneración ordinaria (12 meses)`,           `${f(B)} × 12`,   f(rem)],
+            [`Gratificación Julio — ½ sueldo (Art. 13)`,    `${f(B)} × 0.5`,  f(gratJul)],
+            [`Gratificación Diciembre — ½ sueldo (Art. 13)`,`${f(B)} × 0.5`,  f(gratDic)],
+            [{content:'Total Haberes Brutos Anuales', styles:{fontStyle:'bold'}}, '',
+             {content:f(totHab), styles:{fontStyle:'bold'}}]
+        ],
+        headStyles:{ fillColor:[30,58,95], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Tabla Descuentos Anuales ──
+    const descAnRows = [];
+    if (c.sistema !== 'NINGUNO') {
+        descAnRows.push([`${c.desc.lbl} — 12 meses`, `${f(c.desc.pension)} × 12`, `- ${f(anPen)}`]);
+    }
+    if (c.sistema === 'AFP') {
+        descAnRows.push([`Comisión AFP ${c.afp} — 12 meses`, `${f(c.desc.comAfp)} × 12`, `- ${f(anCom)}`]);
+        descAnRows.push([`Prima de Seguro AFP — 12 meses`,    `${f(c.desc.segAfp)} × 12`, `- ${f(anSeg)}`]);
+    }
+    descAnRows.push([{content:'Gratificaciones — exentas de descuentos', styles:{fontStyle:'italic', textColor:[120,120,120]}},
+                     {content:'Ley 29351', styles:{textColor:[120,120,120], halign:'center'}},
+                     {content:'S/ 0.00', styles:{textColor:[120,120,120], halign:'right'}}]);
+    descAnRows.push([{content:'Total Descuentos Anuales', styles:{fontStyle:'bold'}}, '',
+                     {content:`- ${f(totDesc)}`, styles:{fontStyle:'bold', textColor:[180,30,30]}}]);
+
+    doc.autoTable({
+        startY: ay,
+        head: [['DESCUENTOS AL TRABAJADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: descAnRows,
+        headStyles:{ fillColor:[160,30,30], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Caja Neto Anual ──
+    doc.setFillColor(20,100,60);
+    doc.roundedRect(14, ay, 182, 11, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('NETO ANUAL AL TRABAJADOR:', 19, ay+7.5);
+    doc.text(f(netoAn), 195, ay+7.5, {align:'right'});
+    ay += 15;
+
+    // ── Tabla Aportes + Provisiones Empleador ──
+    doc.autoTable({
+        startY: ay,
+        head: [['APORTES Y PROVISIONES — EMPLEADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: [
+            [`EsSalud 9% — 12 meses (Ley 26790)\n* Gratificaciones exentas · Ley 29351`,
+             `${f(B*LEGAL.ESSALUD)} × 12`, f(esAn)],
+            [`CTS — depósito anual (Art. 12 Ley 27986)\n15 días de rem. por año de servicio`,
+             `${f(B)} ÷ 2`, f(ctsAn)],
+            [`Vacaciones — 15 días por año (Art. 14 Ley 27986)`,
+             `${f(B)} ÷ 2`, f(vacAn)],
+            [{content:'Total Aportes + Provisiones', styles:{fontStyle:'bold'}}, '',
+             {content:f(totAp), styles:{fontStyle:'bold'}}]
+        ],
+        headStyles:{ fillColor:[22,163,74], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7, minCellHeight:10 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Caja Costo Total Anual ──
+    doc.setFillColor(30,58,95);
+    doc.roundedRect(14, ay, 182, 11, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('COSTO TOTAL ANUAL — EMPLEADOR:', 19, ay+7.5);
+    doc.text(f(costoAn), 195, ay+7.5, {align:'right'});
+    ay += 13;
+
+    // Fila costo mensual promedio
+    doc.setFillColor(241,245,249);
+    doc.rect(14, ay, 182, 9, 'F');
+    doc.setTextColor(30,58,95);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Costo mensual promedio (anual ÷ 12):', 19, ay+6);
+    doc.text(f(costoMp), 195, ay+6, {align:'right'});
+    ay += 14;
+
+    // ── Nota legal página 2 ──
+    doc.setFillColor(248,249,250);
+    doc.rect(14,ay,182,16,'F');
+    doc.setFontSize(6); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
+    const nota2 = `Proyección calculada sobre remuneración mensual de ${f(B)}. Gratificaciones (julio y diciembre) exentas de EsSalud y aportes previsionales conforme Ley N° 29351. CTS equivale a 15 días de remuneración por año (Art. 12, Ley 27986); se deposita en entidad bancaria autorizada en mayo y noviembre. Vacaciones: 15 días calendario por año de servicio (Art. 14). Los montos son proyecciones referenciales sujetas a variación según días efectivos trabajados y ajustes de remuneración. Generado con NóminaHogar Perú.`;
+    doc.text(doc.splitTextToSize(nota2, 177), 16, ay+5);
+
     // Guardar
     doc.save(`Boleta_${trNom.replace(/\s+/g,'_')}_${periodoTxt.replace(/\s+/g,'_')}.pdf`);
     toast('✅ PDF generado y descargado');
