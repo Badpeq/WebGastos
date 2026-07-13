@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NóminaHogar Perú — Ley 27986</title>
+
+    <!-- jsPDF + AutoTable desde CDN (sin backend, 100% local) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        /* ── VARIABLES DE DISEÑO ─────────────────────────────── */
+        :root {
+            --bg:           #f1f5f9;
+            --surface:      #ffffff;
+            --border:       #e2e8f0;
+            --text:         #1e293b;
+            --muted:        #64748b;
+            --accent:       #2563eb;
+            --accent-lt:    #eff6ff;
+            --navy:         #1e3a5f;
+            --green:        #16a34a;
+            --red:          #dc2626;
+            --amber:        #d97706;
+            --radius:       12px;
+            --sh:           0 1px 3px rgba(0,0,0,.10),0 1px 2px rgba(0,0,0,.06);
+            --sh-lg:        0 10px 15px -3px rgba(0,0,0,.10);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        /* ── HEADER ─────────────────────────────────────────── */
+        .app-header {
+            background: linear-gradient(135deg, var(--navy) 0%, var(--accent) 100%);
+            color: #fff;
+            padding: .875rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--sh-lg);
+            position: sticky; top: 0; z-index: 50;
+        }
+        .brand { display:flex; align-items:center; gap:.75rem; }
+        .brand-icon {
+            width:42px; height:42px;
+            background: rgba(255,255,255,.2);
+            border-radius:10px;
+            display:grid; place-items:center;
+            font-size:1.4rem;
+        }
+        .brand h1 { font-size:1.125rem; font-weight:700; line-height:1.2; }
+        .brand-sub { font-size:.7rem; opacity:.75; }
+        .header-pill {
+            background: rgba(255,255,255,.18);
+            padding:.2rem .75rem; border-radius:999px;
+            font-size:.7rem; font-weight:600; letter-spacing:.04em;
+        }
+
+        /* ── LAYOUT PRINCIPAL ────────────────────────────────── */
+        .main-grid {
+            max-width:1380px; margin:0 auto;
+            padding:1.25rem;
+            display:grid;
+            grid-template-columns:400px 1fr;
+            gap:1.25rem;
+            align-items:start;
+        }
+        @media(max-width:1060px){ .main-grid{ grid-template-columns:1fr; } }
+
+        .bottom-grid {
+            max-width:1380px; margin:0 auto;
+            padding:0 1.25rem 1.5rem;
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:1.25rem;
+        }
+        @media(max-width:768px){ .bottom-grid{ grid-template-columns:1fr; } }
+
+        /* ── CARD ────────────────────────────────────────────── */
+        .card {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:var(--radius);
+            padding:1.25rem;
+            box-shadow:var(--sh);
+        }
+        .card + .card { margin-top:1.25rem; }
+
+        .card-title {
+            font-size:.7rem; font-weight:700;
+            text-transform:uppercase; letter-spacing:.06em;
+            color:var(--muted);
+            margin-bottom:1rem;
+            display:flex; align-items:center; gap:.5rem;
+        }
+        .card-title::before {
+            content:''; width:3px; height:.875rem;
+            background:var(--accent); border-radius:2px; flex-shrink:0;
+        }
+
+        /* ── FORM ────────────────────────────────────────────── */
+        .form-group { margin-bottom:.875rem; }
+        .form-label {
+            display:block; font-size:.75rem; font-weight:600;
+            color:var(--muted); margin-bottom:.3rem;
+        }
+        .form-control {
+            width:100%; padding:.55rem .8rem;
+            border:1.5px solid var(--border); border-radius:8px;
+            font-size:.9rem; color:var(--text); background:var(--surface);
+            transition:border-color .15s, box-shadow .15s;
+            outline:none;
+        }
+        .form-control:focus {
+            border-color:var(--accent);
+            box-shadow:0 0 0 3px rgba(37,99,235,.12);
+        }
+        .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+        /* ── FREQUENCY TOGGLE (el selector agnóstico) ─────── */
+        .freq-toggle {
+            display:flex;
+            background:var(--bg);
+            border:1.5px solid var(--border);
+            border-radius:10px;
+            padding:3px; gap:3px;
+        }
+        .freq-btn {
+            flex:1; padding:.55rem .5rem;
+            border:none; border-radius:8px;
+            font-size:.8rem; font-weight:600;
+            cursor:pointer; transition:all .2s;
+            background:transparent; color:var(--muted);
+        }
+        .freq-btn.active {
+            background:var(--accent); color:#fff;
+            box-shadow:0 2px 6px rgba(37,99,235,.35);
+        }
+
+        /* ── PENSION TABS ────────────────────────────────────── */
+        .pension-tabs {
+            display:flex;
+            border:1.5px solid var(--border); border-radius:8px; overflow:hidden;
+        }
+        .pension-tab {
+            flex:1; padding:.5rem .25rem;
+            border:none; background:transparent;
+            cursor:pointer; font-size:.8rem; font-weight:600;
+            color:var(--muted); transition:all .2s;
+        }
+        .pension-tab.active { background:var(--navy); color:#fff; }
+
+        /* ── SALARY INPUT ────────────────────────────────────── */
+        .salary-wrap { position:relative; }
+        .salary-pre {
+            position:absolute; left:.8rem; top:50%;
+            transform:translateY(-50%);
+            font-weight:700; color:var(--accent); font-size:.95rem;
+            pointer-events:none;
+        }
+        .salary-input { padding-left:2.25rem !important; font-size:1.1rem !important; font-weight:700 !important; }
+
+        /* ── RESULT ROWS ─────────────────────────────────────── */
+        .result-row {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:.4rem 0; border-bottom:1px solid var(--border);
+        }
+        .result-row:last-child { border-bottom:none; }
+        .result-label { font-size:.8rem; color:var(--muted); }
+        .result-value { font-size:.8rem; font-weight:700; }
+        .result-row.hl {
+            background:var(--accent-lt); padding:.55rem .75rem;
+            border-radius:8px; border-bottom:none; margin:.4rem 0;
+        }
+        .result-row.hl .result-label { color:var(--accent); font-weight:700; }
+        .result-row.hl .result-value { color:var(--accent); font-size:1rem; }
+        .neg { color:var(--red) !important; }
+
+        /* ── COST BOX ────────────────────────────────────────── */
+        .cost-box {
+            background:linear-gradient(135deg, var(--navy), var(--accent));
+            color:#fff; border-radius:var(--radius);
+            padding:1rem 1.25rem; margin-top:.75rem;
+        }
+        .cost-box-lbl { font-size:.65rem; opacity:.75; text-transform:uppercase; letter-spacing:.05em; }
+        .cost-box-val { font-size:1.6rem; font-weight:800; margin:.2rem 0; }
+        .cost-box-sub { font-size:.7rem; opacity:.65; }
+
+        /* ── BOLETA ──────────────────────────────────────────── */
+        .boleta {
+            font-family:'Courier New', monospace;
+            border:1px solid #d1d5db; border-radius:8px;
+            overflow:hidden; background:#fff;
+        }
+        .boleta-hdr {
+            background:var(--navy); color:#fff;
+            padding:.875rem 1.125rem; text-align:center;
+        }
+        .boleta-hdr h3 { font-size:.95rem; font-weight:800; }
+        .boleta-hdr p { font-size:.65rem; opacity:.8; margin-top:.15rem; }
+        .boleta-periodo {
+            display:inline-block; margin-top:.4rem;
+            background:rgba(255,255,255,.15);
+            padding:.15rem .6rem; border-radius:4px;
+            font-size:.7rem;
+        }
+        .boleta-body { padding:.875rem 1.125rem; }
+        .boleta-sec { margin-bottom:.875rem; }
+        .boleta-sec-title {
+            font-size:.6rem; font-weight:800;
+            text-transform:uppercase; letter-spacing:.1em;
+            color:var(--navy);
+            border-bottom:1.5px solid var(--navy);
+            padding-bottom:.2rem; margin-bottom:.4rem;
+        }
+        .boleta-row {
+            display:flex; justify-content:space-between;
+            font-size:.72rem; padding:.15rem 0; color:#333;
+        }
+        .boleta-row.tot {
+            font-weight:800; border-top:1px solid #ccc;
+            padding-top:.3rem; margin-top:.2rem; color:var(--navy);
+        }
+        .boleta-neto {
+            background:var(--navy); color:#fff;
+            padding:.6rem 1.125rem;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .boleta-neto-lbl { font-size:.8rem; font-weight:700; }
+        .boleta-neto-val { font-size:1.2rem; font-weight:800; }
+        .boleta-footer {
+            padding:.75rem 1.125rem;
+            display:grid; grid-template-columns:1fr 1fr; gap:.75rem;
+            border-top:1px solid #eee;
+        }
+        .boleta-firma { text-align:center; }
+        .boleta-firma-line {
+            border-top:1px solid #888;
+            padding-top:.2rem; margin-top:1.5rem;
+            font-size:.6rem; color:#666; line-height:1.4;
+        }
+        .boleta-firma img { max-height:52px; max-width:100%; object-fit:contain; }
+        .boleta-legal {
+            padding:.5rem 1.125rem;
+            background:#f9fafb; border-top:1px solid #eee;
+            font-size:.6rem; color:#94a3b8; text-align:center; line-height:1.5;
+        }
+
+        /* ── FIRMA DROP ZONE ─────────────────────────────────── */
+        .drop-zone {
+            border:2px dashed var(--border); border-radius:10px;
+            padding:1.5rem 1rem; text-align:center; cursor:pointer;
+            transition:all .2s; background:var(--bg);
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color:var(--accent); background:var(--accent-lt);
+        }
+        .drop-icon { font-size:1.75rem; margin-bottom:.35rem; opacity:.45; }
+        .drop-zone p { font-size:.75rem; color:var(--muted); line-height:1.5; }
+        .firma-preview-img {
+            max-width:100%; max-height:100px;
+            object-fit:contain; border-radius:6px;
+            border:1px solid var(--border);
+        }
+
+        /* ── HISTORIAL TABLE ─────────────────────────────────── */
+        .hist-table { width:100%; border-collapse:collapse; font-size:.75rem; }
+        .hist-table th {
+            text-align:left; padding:.5rem .7rem;
+            background:var(--bg); color:var(--muted);
+            font-size:.65rem; text-transform:uppercase;
+            font-weight:700; border-bottom:1px solid var(--border);
+        }
+        .hist-table td {
+            padding:.5rem .7rem; border-bottom:1px solid var(--border);
+        }
+        .hist-table tr:hover td { background:var(--bg); }
+
+        /* ── BUTTONS ─────────────────────────────────────────── */
+        .btn {
+            display:inline-flex; align-items:center; gap:.4rem;
+            padding:.55rem 1.1rem; border-radius:8px;
+            font-size:.8rem; font-weight:700;
+            cursor:pointer; border:none; transition:all .18s;
+        }
+        .btn-primary { background:var(--accent); color:#fff; }
+        .btn-primary:hover { background:#1d4ed8; transform:translateY(-1px); box-shadow:0 4px 8px rgba(37,99,235,.3); }
+        .btn-green { background:var(--green); color:#fff; }
+        .btn-green:hover { background:#15803d; transform:translateY(-1px); }
+        .btn-outline { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+        .btn-outline:hover { background:var(--accent-lt); }
+        .btn-outline-red { background:transparent; color:var(--red); border:1.5px solid var(--red); font-size:.7rem; padding:.25rem .5rem; border-radius:6px; cursor:pointer; }
+        .btn-group { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.875rem; }
+        .btn-print { background:#475569; color:#fff; }
+        .btn-print:hover { background:#334155; transform:translateY(-1px); box-shadow:0 4px 8px rgba(0,0,0,.2); }
+
+        /* ── TABLA ANUAL ─────────────────────────────────────── */
+        .anual-grid {
+            max-width:1380px; margin:0 auto;
+            padding:0 1.25rem 1.25rem;
+        }
+        .anual-hero {
+            display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;
+            margin-bottom:1.25rem;
+        }
+        @media(max-width:700px){ .anual-hero{ grid-template-columns:1fr; } }
+        .anual-hero-box {
+            border-radius:var(--radius); padding:1rem 1.25rem;
+            display:flex; flex-direction:column; gap:.2rem;
+        }
+        .anual-hero-box.primary { background:linear-gradient(135deg,var(--navy),var(--accent)); color:#fff; }
+        .anual-hero-box.green   { background:linear-gradient(135deg,#14532d,var(--green)); color:#fff; }
+        .anual-hero-box.amber   { background:linear-gradient(135deg,#78350f,var(--amber)); color:#fff; }
+        .anual-hero-lbl { font-size:.65rem; opacity:.75; text-transform:uppercase; letter-spacing:.05em; }
+        .anual-hero-val { font-size:1.5rem; font-weight:800; }
+        .anual-hero-sub { font-size:.7rem; opacity:.65; }
+
+        .anual-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+        .anual-table th {
+            padding:.5rem .75rem; text-align:left;
+            background:var(--bg); color:var(--muted);
+            font-size:.65rem; text-transform:uppercase; font-weight:700;
+            border-bottom:1px solid var(--border);
+        }
+        .anual-table th:last-child { text-align:right; }
+        .anual-table td { padding:.45rem .75rem; border-bottom:1px solid var(--border); color:var(--text); }
+        .anual-table td:last-child { text-align:right; font-weight:600; }
+        .anual-table td:nth-child(2) { color:var(--muted); font-size:.75rem; }
+        .anual-table tr:hover td { background:var(--bg); }
+        .anual-table tr.section-hdr td {
+            background:var(--bg); font-size:.65rem; font-weight:700;
+            text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+            padding:.35rem .75rem; border-bottom:none;
+        }
+        .anual-table tr.subtotal td {
+            font-weight:700; background:#f8fafc;
+            border-top:1.5px solid var(--border); border-bottom:1.5px solid var(--border);
+        }
+        .anual-table tr.grand-total td {
+            font-size:.9rem; font-weight:800;
+            background:var(--navy); color:#fff;
+            border:none;
+        }
+        .anual-table tr.grand-total td:nth-child(2) { color:rgba(255,255,255,.6); font-size:.75rem; }
+        .neg-anual { color:var(--red) !important; }
+        .pos-anual { color:var(--green) !important; }
+
+        .bar-wrap { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-top:.75rem; gap:1px; }
+        .bar-seg   { height:100%; transition:width .4s ease; }
+        .bar-legend { display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin-top:.5rem; }
+        .bar-dot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:.3rem; }
+        .bar-legend-item { font-size:.7rem; color:var(--muted); display:flex; align-items:center; }
+
+        /* ── PRINT: muestra solo la boleta centrada en A4 ── */
+        @media print {
+            @page { size:A4 portrait; margin:12mm; }
+            body > *                { display:none !important; }
+            #print-frame            { display:block !important; }
+        }
+        #print-frame {
+            display:none;
+            position:fixed; inset:0; z-index:9999;
+            background:#fff; padding:16mm;
+        }
+
+        /* ── BADGES ──────────────────────────────────────────── */
+        .badge {
+            display:inline-block; padding:.1rem .45rem;
+            border-radius:999px; font-size:.65rem; font-weight:700;
+        }
+        .badge-blue { background:#dbeafe; color:#1d4ed8; }
+        .badge-green { background:#dcfce7; color:var(--green); }
+        .badge-amber { background:#fef3c7; color:var(--amber); }
+
+        /* ── ALERTS ──────────────────────────────────────────── */
+        .alert {
+            padding:.65rem .875rem; border-radius:8px;
+            font-size:.75rem; margin-bottom:.875rem;
+            display:flex; gap:.4rem; align-items:flex-start;
+        }
+        .alert-warn { background:#fffbeb; color:#78350f; border:1px solid #fcd34d; }
+        .alert-info { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+
+        /* ── DIVIDER ─────────────────────────────────────────── */
+        .divider { border:none; border-top:1px solid var(--border); margin:.875rem 0; }
+
+        /* ── HELPER TEXT ─────────────────────────────────────── */
+        .hint { font-size:.7rem; color:var(--muted); margin-top:.25rem; }
+
+        /* ── EMPTY STATE ─────────────────────────────────────── */
+        .empty { text-align:center; padding:1.5rem; color:var(--muted); }
+        .empty-icon { font-size:2rem; opacity:.35; margin-bottom:.35rem; }
+
+        /* ── TOOLTIP ─────────────────────────────────────────── */
+        [data-tip] { position:relative; cursor:help; }
+        [data-tip]:hover::after {
+            content:attr(data-tip);
+            position:absolute; bottom:100%; left:50%;
+            transform:translateX(-50%);
+            background:#1e293b; color:#fff;
+            padding:.3rem .55rem; border-radius:6px;
+            font-size:.65rem; white-space:nowrap;
+            z-index:100; margin-bottom:4px; pointer-events:none;
+        }
+
+        /* ── AFP SECTION (condicional) ───────────────────────── */
+        #afp-box { display:none; }
+        #afp-box.visible { display:block; }
+        #quincena-sel { display:none; }
+
+        /* ── TOAST ───────────────────────────────────────────── */
+        #toast {
+            position:fixed; bottom:1.25rem; right:1.25rem;
+            background:#1e293b; color:#fff;
+            padding:.65rem 1.125rem; border-radius:10px;
+            font-size:.8rem; font-weight:600;
+            box-shadow:0 8px 20px rgba(0,0,0,.25);
+            transform:translateY(80px); opacity:0;
+            transition:all .3s cubic-bezier(.16,1,.3,1);
+            z-index:999;
+        }
+
+        /* ── FADE IN ─────────────────────────────────────────── */
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+        .fade-in { animation:fadeIn .2s ease; }
+
+        @media(max-width:540px) {
+            .form-grid-2 { grid-template-columns:1fr; }
+            .btn-group { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ████████████████  HEADER  ████████████████ -->
+<header class="app-header">
+    <div class="brand">
+        <div class="brand-icon">🏠</div>
+        <div>
+            <h1>NóminaHogar Perú</h1>
+            <div class="brand-sub">Ley N° 27986 · Trabajadores del Hogar · 100% Local</div>
+        </div>
+    </div>
+    <div class="header-pill">v1.0 · Sin servidor</div>
+</header>
+
+<!-- ████████████████  MAIN GRID  ████████████████ -->
+<div class="main-grid">
+
+    <!-- ═══════  COLUMNA IZQUIERDA: INPUTS  ═══════ -->
+    <div id="left-panel">
+
+        <!-- ── EMPLEADOR ── -->
+        <div class="card">
+            <div class="card-title">Datos del Empleador</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Nombre Completo *</label>
+                    <input class="form-control" id="emp-nombre" type="text" placeholder="María García López">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">DNI</label>
+                    <input class="form-control" id="emp-dni" type="text" maxlength="8" placeholder="12345678">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Domicilio</label>
+                <input class="form-control" id="emp-dir" type="text" placeholder="Jr. Las Flores 123, Miraflores, Lima">
+            </div>
+        </div>
+
+        <!-- ── TRABAJADOR ── -->
+        <div class="card">
+            <div class="card-title">Datos del Trabajador del Hogar</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Nombre Completo *</label>
+                    <input class="form-control" id="trab-nombre" type="text" placeholder="Ana López Quispe">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">DNI</label>
+                    <input class="form-control" id="trab-dni" type="text" maxlength="8" placeholder="87654321">
+                </div>
+            </div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Cargo</label>
+                    <select class="form-control" id="trab-cargo">
+                        <option>Empleada del Hogar</option>
+                        <option>Cocinera</option>
+                        <option>Niñera / Cuidadora</option>
+                        <option>Jardinero</option>
+                        <option>Chofer Particular</option>
+                        <option>Mayordomo</option>
+                        <option>Trabajador/a Multifuncional</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Modalidad</label>
+                    <select class="form-control" id="trab-modalidad">
+                        <option>Cama Afuera</option>
+                        <option>Cama Adentro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Fecha de Ingreso</label>
+                    <input class="form-control" id="trab-ingreso" type="date">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Período de Pago</label>
+                    <input class="form-control" id="periodo" type="month">
+                </div>
+            </div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">N° de Boleta</label>
+                    <input class="form-control" id="num-boleta" type="text" placeholder="Ej: 001-2026">
+                    <p class="hint">Se imprime en el encabezado de la boleta.</p>
+                </div>
+                <div class="form-group" style="display:flex; flex-direction:column; justify-content:flex-end;">
+                    <button class="btn btn-outline" style="width:100%; margin-bottom:1.55rem;"
+                            onclick="autoNumerarBoleta()">
+                        🔢 Autonumerar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── CONFIGURACIÓN DE PAGO ── -->
+        <div class="card">
+            <div class="card-title">Configuración de Pago</div>
+
+            <!--
+            ════════════════════════════════════════════════
+            SELECTOR DE FRECUENCIA — EL CORAZÓN AGNÓSTICO
+            ════════════════════════════════════════════════
+            Este toggle es el único punto de decisión.
+            Al cambiar, la función setFrecuencia() actualiza
+            el estado.frecuencia y dispara recalcular(),
+            que aplica el DIVISOR correcto a TODAS las fórmulas
+            sin tocar ninguna constante legal.
+            ════════════════════════════════════════════════
+            -->
+            <div class="form-group">
+                <label class="form-label">
+                    Frecuencia de Pago
+                    <span class="badge badge-blue" id="badge-freq">Mensual</span>
+                </label>
+                <div class="freq-toggle">
+                    <button class="freq-btn active" id="btn-mens" onclick="setFrecuencia('mensual')">
+                        📅 Mensual
+                    </button>
+                    <button class="freq-btn" id="btn-quin" onclick="setFrecuencia('quincenal')">
+                        ✂️ Quincenal
+                    </button>
+                </div>
+                <p class="hint" id="hint-freq">
+                    Una (1) boleta mensual · cubre 30 días de trabajo.
+                </p>
+            </div>
+
+            <!-- Selector 1ª / 2ª quincena — solo visible en modo quincenal -->
+            <div class="form-group" id="quincena-sel">
+                <label class="form-label">¿Qué quincena corresponde?</label>
+                <div class="freq-toggle">
+                    <button class="freq-btn active" id="btn-q1" onclick="setQuincena(1)">
+                        1ª Quincena (días 1 – 15)
+                    </button>
+                    <button class="freq-btn" id="btn-q2" onclick="setQuincena(2)">
+                        2ª Quincena (días 16 – último)
+                    </button>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <!-- SUELDO BRUTO MENSUAL (siempre mensual, el motor hace la división) -->
+            <div class="form-group">
+                <label class="form-label">
+                    Sueldo Bruto Mensual *
+                    <span data-tip="RMV vigente: S/ 1,025 (desde mayo 2022)" style="font-size:.95rem;">ℹ️</span>
+                </label>
+                <div class="salary-wrap">
+                    <span class="salary-pre">S/</span>
+                    <input class="form-control salary-input" id="sueldo" type="number"
+                           value="1025" min="0" step="50">
+                </div>
+                <p class="hint">RMV mínimo: S/ 1,025 · Siempre ingresa el monto MENSUAL.</p>
+            </div>
+
+            <!-- SISTEMA DE PENSIONES -->
+            <div class="form-group">
+                <label class="form-label">Sistema de Pensiones</label>
+                <div class="pension-tabs">
+                    <button class="pension-tab active" id="tab-onp"     onclick="setSistema('ONP')">ONP (13%)</button>
+                    <button class="pension-tab"        id="tab-afp"     onclick="setSistema('AFP')">AFP</button>
+                    <button class="pension-tab"        id="tab-ninguno" onclick="setSistema('NINGUNO')">Sin pensión</button>
+                </div>
+            </div>
+
+            <!-- Detalle AFP — aparece solo si sistema = AFP -->
+            <div id="afp-box">
+                <div class="form-group">
+                    <label class="form-label">AFP</label>
+                    <select class="form-control" id="afp-sel" onchange="recalcular()">
+                        <option value="HABITAT">AFP Habitat — Comisión flujo: 0.89%</option>
+                        <option value="INTEGRA">AFP Integra — Comisión flujo: 1.55%</option>
+                        <option value="PRIMA">AFP Prima — Comisión flujo: 1.19%</option>
+                        <option value="PROFUTURO">AFP Profuturo — Comisión flujo: 1.49%</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- OTROS DESCUENTOS -->
+            <div class="form-group">
+                <label class="form-label">Adelantos / Otros Descuentos del Período</label>
+                <div class="salary-wrap">
+                    <span class="salary-pre">S/</span>
+                    <input class="form-control salary-input" id="otros-desc" type="number" value="0" min="0" step="10">
+                </div>
+            </div>
+
+            <!-- OBSERVACIONES -->
+            <div class="form-group">
+                <label class="form-label">Observaciones / Notas <span style="font-weight:400;">(opcional)</span></label>
+                <textarea class="form-control" id="observaciones" rows="3"
+                          placeholder="Ej: Incluye bonificación por feriado. Descuento por 2 días de falta justificada. Pago adelantado del 50% el día 10."
+                          style="resize:vertical; line-height:1.5;"></textarea>
+                <p class="hint">Aparecerá al pie de la boleta y en el PDF.</p>
+            </div>
+        </div>
+    </div><!-- /left-panel -->
+
+    <!-- ═══════  COLUMNA DERECHA: RESULTADOS + BOLETA  ═══════ -->
+    <div id="right-panel">
+
+        <!-- RESUMEN LIVE -->
+        <div class="card">
+            <div class="card-title">
+                Resumen del Período
+                <span class="badge badge-blue" id="badge-periodo">Mensual · 30 días</span>
+            </div>
+
+            <div class="alert alert-warn" id="alerta-rmv" style="display:none;">
+                ⚠️ El sueldo ingresado es menor a la RMV (S/ 1,025). Verifica el monto antes de imprimir.
+            </div>
+
+            <!-- HABERES -->
+            <div class="card-title" style="margin-bottom:.5rem; color:var(--green);">Haberes</div>
+            <div class="result-row">
+                <span class="result-label" id="lbl-remuner">Remuneración Mensual</span>
+                <span class="result-value" id="v-bruto">S/ 0.00</span>
+            </div>
+
+            <hr class="divider">
+
+            <!-- DESCUENTOS -->
+            <div class="card-title" style="margin-bottom:.5rem; color:var(--red);">Descuentos</div>
+            <div class="result-row" id="row-pension">
+                <span class="result-label" id="lbl-pension">Retención ONP (13%)</span>
+                <span class="result-value neg" id="v-pension">- S/ 0.00</span>
+            </div>
+            <div class="result-row" id="row-afp-com" style="display:none;">
+                <span class="result-label" id="lbl-afp-com">Comisión AFP</span>
+                <span class="result-value neg" id="v-afp-com">- S/ 0.00</span>
+            </div>
+            <div class="result-row" id="row-afp-seg" style="display:none;">
+                <span class="result-label">Prima de Seguro AFP</span>
+                <span class="result-value neg" id="v-afp-seg">- S/ 0.00</span>
+            </div>
+            <div class="result-row" id="row-otros" style="display:none;">
+                <span class="result-label">Adelantos / Otros Descuentos</span>
+                <span class="result-value neg" id="v-otros">- S/ 0.00</span>
+            </div>
+
+            <!-- NETO DESTACADO -->
+            <div class="result-row hl">
+                <span class="result-label">NETO A PAGAR</span>
+                <span class="result-value" id="v-neto">S/ 0.00</span>
+            </div>
+
+            <hr class="divider">
+
+            <!-- APORTES EMPLEADOR -->
+            <div class="card-title" style="margin-bottom:.5rem; color:var(--navy);">Aportes del Empleador</div>
+            <div class="result-row">
+                <span class="result-label" data-tip="Seguro de salud: 9% del bruto del período · a cargo del empleador">EsSalud (9%)</span>
+                <span class="result-value" id="v-essalud">S/ 0.00</span>
+            </div>
+
+            <hr class="divider">
+
+            <!-- PROVISIONES -->
+            <div class="card-title" style="margin-bottom:.5rem; color:var(--amber);">
+                Provisiones por Período
+                <span data-tip="Monto que el empleador debe apartar en cada pago para cubrir beneficios anuales" style="font-size:.85rem;">ℹ️</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label" data-tip="15 días de rem. por año de servicio · Ley 27986 Art. 12">CTS &nbsp;<small>(15 días/año)</small></span>
+                <span class="result-value" id="v-cts">S/ 0.00</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label" data-tip="½ sueldo en julio + ½ sueldo en diciembre · Ley 27986 Art. 13">Gratificaciones &nbsp;<small>(½ jul + ½ dic)</small></span>
+                <span class="result-value" id="v-gratif">S/ 0.00</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label" data-tip="15 días calendario por año de servicio · Ley 27986 Art. 14">Vacaciones &nbsp;<small>(15 días/año)</small></span>
+                <span class="result-value" id="v-vac">S/ 0.00</span>
+            </div>
+            <div class="result-row" style="border-bottom:none;">
+                <span class="result-label" style="font-weight:700;">Total Provisiones del Período</span>
+                <span class="result-value" id="v-tot-prov">S/ 0.00</span>
+            </div>
+
+            <!-- COSTO TOTAL EMPLEADOR -->
+            <div class="cost-box">
+                <div class="cost-box-lbl">Costo Total del Empleador</div>
+                <div class="cost-box-val" id="v-costo">S/ 0.00</div>
+                <div class="cost-box-sub" id="v-costo-sub">Neto + EsSalud + Provisiones del período</div>
+            </div>
+        </div>
+
+        <!-- BOLETA PREVIEW -->
+        <div class="card" style="margin-top:1.25rem;">
+            <div class="card-title">
+                Vista Previa — Boleta de Pago
+                <span class="badge badge-amber" id="badge-boleta-tipo">Mensual</span>
+            </div>
+
+            <div id="boleta" class="boleta fade-in">
+                <!-- La boleta se renderiza dinámicamente en actualizarBoleta() -->
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="exportarPDF()">📄 Exportar PDF</button>
+                <button class="btn btn-print"   onclick="imprimirBoleta()">🖨️ Imprimir</button>
+                <button class="btn btn-green"   onclick="guardarEnHistorial()">💾 Guardar en Historial</button>
+                <button class="btn btn-outline"  onclick="limpiarTrabajador()">🔄 Limpiar</button>
+            </div>
+        </div>
+    </div><!-- /right-panel -->
+
+</div><!-- /main-grid -->
+
+<!-- ████████████████  COSTO ANUAL PROYECTADO  ████████████████ -->
+<div class="anual-grid">
+    <div class="card">
+        <div class="card-title">Proyección de Costo Anual</div>
+
+        <!-- KPIs superiores -->
+        <div class="anual-hero">
+            <div class="anual-hero-box primary">
+                <span class="anual-hero-lbl">Costo Total Anual · Empleador</span>
+                <span class="anual-hero-val" id="an-costo-total">S/ 0.00</span>
+                <span class="anual-hero-sub">Rem. + Gratif. + EsSalud + CTS + Vacaciones</span>
+            </div>
+            <div class="anual-hero-box green">
+                <span class="anual-hero-lbl">Neto Anual · Trabajador</span>
+                <span class="anual-hero-val" id="an-neto-total">S/ 0.00</span>
+                <span class="anual-hero-sub" id="an-neto-sub">12 sueldos netos + gratificaciones</span>
+            </div>
+            <div class="anual-hero-box amber">
+                <span class="anual-hero-lbl">Costo Mensual Promedio</span>
+                <span class="anual-hero-val" id="an-costo-mes">S/ 0.00</span>
+                <span class="anual-hero-sub">Costo anual ÷ 12</span>
+            </div>
+        </div>
+
+        <!-- Barra de composición -->
+        <div style="margin-bottom:1.25rem;">
+            <div style="font-size:.7rem; color:var(--muted); margin-bottom:.35rem; font-weight:600;">
+                Composición del costo anual
+            </div>
+            <div class="bar-wrap" id="an-bar">
+                <div class="bar-seg" id="bar-rem"   style="background:#2563eb;"></div>
+                <div class="bar-seg" id="bar-gratif" style="background:#7c3aed;"></div>
+                <div class="bar-seg" id="bar-es"    style="background:#16a34a;"></div>
+                <div class="bar-seg" id="bar-cts"   style="background:#d97706;"></div>
+                <div class="bar-seg" id="bar-vac"   style="background:#dc2626;"></div>
+            </div>
+            <div class="bar-legend">
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#2563eb"></span>Remuneración</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#7c3aed"></span>Gratificaciones</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#16a34a"></span>EsSalud</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#d97706"></span>CTS</span>
+                <span class="bar-legend-item"><span class="bar-dot" style="background:#dc2626"></span>Vacaciones</span>
+            </div>
+        </div>
+
+        <!-- Tabla detallada -->
+        <div style="overflow-x:auto;">
+            <table class="anual-table">
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Concepto</th>
+                        <th style="width:30%;">Fórmula</th>
+                        <th style="width:25%;">Monto Anual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- HABERES -->
+                    <tr class="section-hdr"><td colspan="3">Haberes del Trabajador</td></tr>
+                    <tr>
+                        <td>Remuneración (12 meses)</td>
+                        <td id="an-f-rem"></td>
+                        <td id="an-rem">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Gratificación Julio <small style="color:var(--muted);">(½ sueldo · Art. 13)</small></td>
+                        <td id="an-f-gjul"></td>
+                        <td id="an-gjul">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Gratificación Diciembre <small style="color:var(--muted);">(½ sueldo · Art. 13)</small></td>
+                        <td id="an-f-gdic"></td>
+                        <td id="an-gdic">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Haberes Brutos</td>
+                        <td></td>
+                        <td id="an-tot-hab">S/ 0.00</td>
+                    </tr>
+                    <!-- DESCUENTOS -->
+                    <tr class="section-hdr"><td colspan="3">Descuentos al Trabajador</td></tr>
+                    <tr>
+                        <td id="an-lbl-pension">Retención ONP — 12 meses</td>
+                        <td id="an-f-pension"></td>
+                        <td class="neg-anual" id="an-pension">- S/ 0.00</td>
+                    </tr>
+                    <tr id="an-row-afpcom" style="display:none;">
+                        <td id="an-lbl-afpcom">Comisión AFP — 12 meses</td>
+                        <td id="an-f-afpcom"></td>
+                        <td class="neg-anual" id="an-afpcom">- S/ 0.00</td>
+                    </tr>
+                    <tr id="an-row-afpseg" style="display:none;">
+                        <td>Prima de Seguro AFP — 12 meses</td>
+                        <td id="an-f-afpseg"></td>
+                        <td class="neg-anual" id="an-afpseg">- S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="font-size:.7rem; color:var(--muted); font-style:italic;">
+                            Gratificaciones exentas de descuentos · Ley 29351
+                        </td>
+                        <td style="color:var(--muted); font-size:.75rem;">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Descuentos</td>
+                        <td></td>
+                        <td class="neg-anual" id="an-tot-desc">- S/ 0.00</td>
+                    </tr>
+                    <!-- NETO ANUAL -->
+                    <tr class="grand-total">
+                        <td>Neto Anual al Trabajador</td>
+                        <td id="an-f-neto"></td>
+                        <td class="pos-anual" id="an-neto" style="color:#86efac !important;">S/ 0.00</td>
+                    </tr>
+                    <!-- APORTES EMPLEADOR -->
+                    <tr class="section-hdr"><td colspan="3">Aportes y Provisiones — Empleador</td></tr>
+                    <tr>
+                        <td>EsSalud 9% — 12 meses <small style="color:var(--muted);">(Ley 26790)</small></td>
+                        <td id="an-f-es"></td>
+                        <td id="an-es">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>CTS — depósito anual <small style="color:var(--muted);">(Art. 12 · 15 días/año)</small></td>
+                        <td id="an-f-cts"></td>
+                        <td id="an-cts">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td>Vacaciones — 15 días/año <small style="color:var(--muted);">(Art. 14)</small></td>
+                        <td id="an-f-vac"></td>
+                        <td id="an-vac">S/ 0.00</td>
+                    </tr>
+                    <tr class="subtotal">
+                        <td>Total Aportes + Provisiones</td>
+                        <td></td>
+                        <td id="an-tot-ap">S/ 0.00</td>
+                    </tr>
+                    <!-- COSTO TOTAL -->
+                    <tr class="grand-total">
+                        <td>Costo Total Anual · Empleador</td>
+                        <td id="an-f-costo"></td>
+                        <td id="an-costo" style="color:#fff !important;">S/ 0.00</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Costo Mensual Promedio</td>
+                        <td style="color:var(--muted); font-size:.75rem;">Costo anual ÷ 12</td>
+                        <td style="font-weight:700;" id="an-costo-prom">S/ 0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="hint" style="margin-top:.75rem;">
+            * Gratificaciones exentas de EsSalud y aportes previsionales · Ley 29351.
+            CTS se deposita en mayo y noviembre. Vacaciones se otorgan después del primer año de servicio.
+        </p>
+    </div>
+</div>
+
+<!-- ████████████████  BOTTOM GRID: FIRMA + HISTORIAL  ████████████████ -->
+<div class="bottom-grid">
+
+    <!-- ── GESTIÓN DE FIRMA ── -->
+    <div class="card">
+        <div class="card-title">Gestión de Firma (Local)</div>
+        <p class="hint" style="margin-bottom:.875rem;">
+            Arrastra una imagen o haz clic para cargar la firma. Se guarda solo en tu navegador.
+        </p>
+
+        <div class="form-grid-2">
+            <!-- Firma Empleador -->
+            <div>
+                <label class="form-label">Firma del Empleador</label>
+                <div class="drop-zone" id="dz-emp"
+                     ondragover="onDragOver(event,'emp')" ondragleave="onDragLeave(event,'emp')"
+                     ondrop="onDrop(event,'emp')" onclick="document.getElementById('f-emp').click()">
+                    <div id="preview-emp">
+                        <div class="drop-icon">✍️</div>
+                        <p>Arrastra aquí<br><small>o clic para seleccionar</small></p>
+                    </div>
+                    <input type="file" id="f-emp" accept="image/*" style="display:none"
+                           onchange="loadFirma(event,'emp')">
+                </div>
+            </div>
+            <!-- Firma Trabajador -->
+            <div>
+                <label class="form-label">Firma del Trabajador</label>
+                <div class="drop-zone" id="dz-trab"
+                     ondragover="onDragOver(event,'trab')" ondragleave="onDragLeave(event,'trab')"
+                     ondrop="onDrop(event,'trab')" onclick="document.getElementById('f-trab').click()">
+                    <div id="preview-trab">
+                        <div class="drop-icon">✍️</div>
+                        <p>Arrastra aquí<br><small>o clic para seleccionar</small></p>
+                    </div>
+                    <input type="file" id="f-trab" accept="image/*" style="display:none"
+                           onchange="loadFirma(event,'trab')">
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-outline" onclick="guardarFirmas()">💾 Guardar Firmas</button>
+            <button class="btn-outline-red"  onclick="borrarFirmas()">🗑️ Borrar Firmas</button>
+        </div>
+
+        <div class="alert alert-info" style="margin-top:.875rem;">
+            ℹ️ Las firmas se almacenan en <strong>localStorage</strong> de tu navegador. No salen de tu dispositivo.
+        </div>
+    </div>
+
+    <!-- ── HISTORIAL DE PAGOS ── -->
+    <div class="card">
+        <div class="card-title">
+            Historial de Pagos
+            <span class="badge badge-green" id="badge-hist">0 registros</span>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="hist-table">
+                <thead>
+                    <tr>
+                        <th>Período</th>
+                        <th>Trabajador</th>
+                        <th>Bruto (mes)</th>
+                        <th>Neto Pagado</th>
+                        <th>Tipo</th>
+                        <th>PDF Generado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="hist-body">
+                    <tr><td colspan="7">
+                        <div class="empty">
+                            <div class="empty-icon">📋</div>
+                            <p>Sin registros. Guarda tu primera boleta.</p>
+                        </div>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-outline"  onclick="exportarJSON()">📤 Exportar JSON</button>
+            <button class="btn-outline-red"  onclick="borrarHistorial()">🗑️ Borrar todo</button>
+        </div>
+    </div>
+
+</div><!-- /bottom-grid -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- FRAME OCULTO SOLO PARA IMPRESIÓN -->
+<div id="print-frame"></div>
+
+<!-- ████████████████  JAVASCRIPT  ████████████████ -->
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════════
+//  CONSTANTES LEGALES — Ley 27986 Trabajadores del Hogar, Perú
+// ══════════════════════════════════════════════════════════════════
+const LEGAL = {
+    RMV: 1025,          // Remuneración Mínima Vital (desde mayo 2022)
+    ONP:  0.13,         // 13% del bruto · D.L. 19990
+    ESSALUD: 0.09,      // 9% del bruto, aporte del EMPLEADOR · Ley 26790
+
+    /*
+     * FACTORES DE PROVISIÓN MENSUAL (sobre el bruto mensual)
+     * ────────────────────────────────────────────────────────
+     * CTS:           15 días / 360 días = 1/24
+     *                Ley 27986, Art. 12
+     *
+     * Gratificaciones: ½ sueldo jul + ½ sueldo dic = 1 sueldo/año
+     *                  → 1/12 mensual
+     *                  Ley 27986, Art. 13
+     *
+     * Vacaciones:    15 días / 360 días = 1/24
+     *                Ley 27986, Art. 14
+     */
+    CTS_F:    1 / 24,
+    GRATIF_F: 1 / 12,
+    VAC_F:    1 / 24,
+
+    AFP: {
+        HABITAT:   { aporte:0.10, comision:0.0089, seguro:0.0174 },
+        INTEGRA:   { aporte:0.10, comision:0.0155, seguro:0.0174 },
+        PRIMA:     { aporte:0.10, comision:0.0119, seguro:0.0174 },
+        PROFUTURO: { aporte:0.10, comision:0.0149, seguro:0.0174 }
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const S = {
+    frecuencia: 'mensual',   // 'mensual' | 'quincenal'
+    quincena:   1,            // 1 (días 1-15) | 2 (días 16-último)
+    sistema:    'ONP',        // 'ONP' | 'AFP' | 'NINGUNO'
+    afp:        'HABITAT',
+    firmas:     { emp: null, trab: null },
+    calc:       null          // Último resultado del motor
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  MOTOR DE CÁLCULO AGNÓSTICO
+//  ─────────────────────────────────────────────────────────────────
+//  Recibe el sueldo MENSUAL y la configuración, y devuelve
+//  todos los montos ajustados al PERÍODO seleccionado.
+//
+//  CLAVE AGNÓSTICA: el único cambio entre pago mensual y quincenal
+//  es el DIVISOR. Al aplicarlo a la base, las mismas fórmulas
+//  producen resultados correctos para cualquier frecuencia.
+//  Si en el futuro se agrega "semanal", solo cambia el divisor.
+// ══════════════════════════════════════════════════════════════════
+function motorCalculo(brutoMensual, frecuencia, quincena, sistema, afpNombre, otrosDesc) {
+
+    // ── DECISIÓN DE PERÍODO ──────────────────────────────────────
+    // Mensual   → 1 pago de 30 días → todo se divide entre 1 (sin efecto)
+    // Quincenal → 2 pagos de 15 días → todo se divide entre 2
+    const divisor    = frecuencia === 'quincenal' ? 2 : 1;
+    const diasPeriodo = frecuencia === 'quincenal' ? 15 : 30;
+
+    // Base del período: lo que efectivamente se le paga al trabajador
+    const base = brutoMensual / divisor;
+
+    // ── RETENCIONES AL TRABAJADOR ────────────────────────────────
+    let retPension = 0, retComAFP = 0, retSegAFP = 0, lbl = '';
+
+    if (sistema === 'ONP') {
+        retPension = base * LEGAL.ONP;
+        lbl = 'Retención ONP (13%)';
+    } else if (sistema === 'AFP') {
+        const cfg  = LEGAL.AFP[afpNombre];
+        retPension = base * cfg.aporte;      // 10% obligatorio
+        retComAFP  = base * cfg.comision;    // Comisión sobre flujo
+        retSegAFP  = base * cfg.seguro;      // Prima de seguro
+        lbl = `Aporte AFP ${afpNombre} (10%)`;
+    }
+    // sistema 'NINGUNO' → todas quedan en 0
+
+    const totDesc  = retPension + retComAFP + retSegAFP + otrosDesc;
+    const neto     = base - totDesc;
+
+    // ── APORTES DEL EMPLEADOR ────────────────────────────────────
+    const essalud  = base * LEGAL.ESSALUD;
+
+    // ── PROVISIONES POR PERÍODO ──────────────────────────────────
+    // Las provisiones se calculan sobre el MENSUAL y luego se
+    // dividen por el divisor. Esto es correcto porque:
+    //   - Al depositar la CTS en mayo y noviembre, el empleador
+    //     habrá provisionado el monto exacto si lo apartan cada pago.
+    //   - En pago quincenal, se apartan dos veces menos cada vez,
+    //     pero al acumular los dos pagos del mes se llega al mismo total.
+    const pCTS    = (brutoMensual * LEGAL.CTS_F)    / divisor;
+    const pGratif = (brutoMensual * LEGAL.GRATIF_F) / divisor;
+    const pVac    = (brutoMensual * LEGAL.VAC_F)    / divisor;
+    const totProv = pCTS + pGratif + pVac;
+
+    return {
+        frecuencia, quincena, divisor, diasPeriodo,
+        bruto: base, brutoMensual,
+        desc: { pension:retPension, lbl, comAfp:retComAFP, segAfp:retSegAFP, otros:otrosDesc, total:totDesc },
+        neto,
+        emp: { essalud },
+        prov: { cts:pCTS, gratif:pGratif, vac:pVac, total:totProv },
+        costoTotal: base + essalud + totProv,
+        sistema, afp: afpNombre
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  CICLO PRINCIPAL: leer inputs → calcular → actualizar UI
+// ══════════════════════════════════════════════════════════════════
+function recalcular() {
+    const bruto = parseFloat(document.getElementById('sueldo').value) || 0;
+    const otros = parseFloat(document.getElementById('otros-desc').value) || 0;
+    if (S.sistema === 'AFP') S.afp = document.getElementById('afp-sel').value;
+
+    // Alerta RMV
+    document.getElementById('alerta-rmv').style.display =
+        (bruto > 0 && bruto < LEGAL.RMV) ? 'flex' : 'none';
+
+    // Motor
+    const c = motorCalculo(bruto, S.frecuencia, S.quincena, S.sistema, S.afp, otros);
+    S.calc = c;
+
+    actualizarResumen(c);
+    actualizarBoleta(c);
+    actualizarAnual(c);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ACTUALIZAR PANEL DE RESUMEN
+// ══════════════════════════════════════════════════════════════════
+function actualizarResumen(c) {
+    const f = n => `S/ ${n.toFixed(2)}`;
+    const esQ = c.frecuencia === 'quincenal';
+    const rng = c.quincena === 1 ? '1-15' : '16-último';
+
+    // Haberes
+    document.getElementById('v-bruto').textContent = f(c.bruto);
+    document.getElementById('lbl-remuner').textContent =
+        `Remuneración ${esQ ? `Quincenal (${rng})` : 'Mensual'} (${c.diasPeriodo} días)`;
+
+    // Descuentos
+    const esAFP = S.sistema === 'AFP';
+    document.getElementById('row-pension').style.display  = S.sistema === 'NINGUNO' ? 'none' : 'flex';
+    document.getElementById('row-afp-com').style.display  = esAFP ? 'flex' : 'none';
+    document.getElementById('row-afp-seg').style.display  = esAFP ? 'flex' : 'none';
+    document.getElementById('lbl-pension').textContent    = c.desc.lbl || 'Pensiones';
+    document.getElementById('v-pension').textContent      = `- ${f(c.desc.pension)}`;
+    document.getElementById('lbl-afp-com').textContent    = `Comisión AFP ${c.afp}`;
+    document.getElementById('v-afp-com').textContent      = `- ${f(c.desc.comAfp)}`;
+    document.getElementById('v-afp-seg').textContent      = `- ${f(c.desc.segAfp)}`;
+
+    const hayOtros = c.desc.otros > 0;
+    document.getElementById('row-otros').style.display = hayOtros ? 'flex' : 'none';
+    document.getElementById('v-otros').textContent = `- ${f(c.desc.otros)}`;
+
+    // Neto
+    document.getElementById('v-neto').textContent = f(c.neto);
+
+    // Aportes empleador
+    document.getElementById('v-essalud').textContent = f(c.emp.essalud);
+
+    // Provisiones
+    document.getElementById('v-cts').textContent      = f(c.prov.cts);
+    document.getElementById('v-gratif').textContent   = f(c.prov.gratif);
+    document.getElementById('v-vac').textContent      = f(c.prov.vac);
+    document.getElementById('v-tot-prov').textContent = f(c.prov.total);
+
+    // Costo total
+    document.getElementById('v-costo').textContent = f(c.costoTotal);
+    document.getElementById('v-costo-sub').textContent =
+        esQ ? 'Neto quincenal + EsSalud + Provisiones quincenales'
+            : 'Neto mensual + EsSalud + Provisiones del mes';
+
+    // Badges de período
+    const periodoLbl = esQ ? `Quincenal · 15 días (${rng})` : 'Mensual · 30 días';
+    document.getElementById('badge-periodo').textContent = periodoLbl;
+    document.getElementById('badge-boleta-tipo').textContent = esQ ? 'Quincenal' : 'Mensual';
+    document.getElementById('badge-boleta-tipo').className =
+        `badge ${esQ ? 'badge-amber' : 'badge-blue'}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GENERAR BOLETA HTML (Vista Previa en tiempo real)
+// ══════════════════════════════════════════════════════════════════
+function actualizarBoleta(c) {
+    const f  = n => `S/ ${n.toFixed(2)}`;
+    const g  = id => document.getElementById(id).value || '—';
+    const fF = d => d ? d.split('-').reverse().join('/') : '—';
+
+    const empNombre = g('emp-nombre'), empDNI = g('emp-dni'), empDir = g('emp-dir');
+    const trNombre  = g('trab-nombre'), trDNI = g('trab-dni');
+    const cargo     = g('trab-cargo'), modal = g('trab-modalidad'), ingreso = g('trab-ingreso');
+    const periodo   = g('periodo');
+    const numBoleta = document.getElementById('num-boleta').value.trim();
+    const obs       = document.getElementById('observaciones').value.trim();
+    const periodoTxt = periodo !== '—' ? fmtPeriodo(periodo, c.frecuencia, c.quincena) : 'Sin definir';
+
+    const esQ   = c.frecuencia === 'quincenal';
+    const qLabel = c.quincena === 1 ? 'primera (días 1-15)' : 'segunda (días 16 al último)';
+
+    // Construir filas de descuentos
+    let rowsDesc = '';
+    if (c.sistema !== 'NINGUNO') {
+        rowsDesc += `<div class="boleta-row"><span>${c.desc.lbl}</span><span>${f(c.desc.pension)}</span></div>`;
+    }
+    if (c.sistema === 'AFP') {
+        rowsDesc += `<div class="boleta-row"><span>Comisión AFP ${c.afp}</span><span>${f(c.desc.comAfp)}</span></div>`;
+        rowsDesc += `<div class="boleta-row"><span>Prima de Seguro AFP</span><span>${f(c.desc.segAfp)}</span></div>`;
+    }
+    if (c.desc.otros > 0) {
+        rowsDesc += `<div class="boleta-row"><span>Adelantos / Otros</span><span>${f(c.desc.otros)}</span></div>`;
+    }
+    if (!rowsDesc) {
+        rowsDesc = `<div class="boleta-row"><span style="color:#aaa">Sin descuentos</span><span>S/ 0.00</span></div>`;
+    }
+
+    document.getElementById('boleta').innerHTML = `
+        <div class="boleta-hdr">
+            <h3>BOLETA DE PAGO${numBoleta ? ` &nbsp;·&nbsp; N° ${numBoleta}` : ''}</h3>
+            <p>Trabajadores del Hogar · Ley N° 27986</p>
+            <span class="boleta-periodo">Período: ${periodoTxt}</span>
+        </div>
+
+        <div class="boleta-body">
+            <div class="boleta-sec">
+                <div class="boleta-sec-title">Empleador</div>
+                <div class="boleta-row"><span>Nombre:</span><span><b>${empNombre}</b></span></div>
+                <div class="boleta-row"><span>DNI:</span><span>${empDNI}</span></div>
+                <div class="boleta-row"><span>Domicilio:</span><span>${empDir}</span></div>
+            </div>
+
+            <div class="boleta-sec">
+                <div class="boleta-sec-title">Trabajador</div>
+                <div class="boleta-row"><span>Nombre:</span><span><b>${trNombre}</b></span></div>
+                <div class="boleta-row"><span>DNI:</span><span>${trDNI}</span></div>
+                <div class="boleta-row"><span>Cargo:</span><span>${cargo}</span></div>
+                <div class="boleta-row"><span>Modalidad:</span><span>${modal}</span></div>
+                ${ingreso !== '—' ? `<div class="boleta-row"><span>Ingreso:</span><span>${fF(ingreso)}</span></div>` : ''}
+            </div>
+
+            <div class="boleta-sec">
+                <div class="boleta-sec-title">Haberes</div>
+                <div class="boleta-row">
+                    <span>Rem. ${esQ ? 'Quincenal' : 'Mensual'} (${c.diasPeriodo} días)</span>
+                    <span>${f(c.bruto)}</span>
+                </div>
+                <div class="boleta-row tot"><span>TOTAL HABERES</span><span>${f(c.bruto)}</span></div>
+            </div>
+
+            <div class="boleta-sec">
+                <div class="boleta-sec-title">Descuentos</div>
+                ${rowsDesc}
+                <div class="boleta-row tot"><span>TOTAL DESCUENTOS</span><span>${f(c.desc.total)}</span></div>
+            </div>
+        </div>
+
+        <div class="boleta-neto">
+            <span class="boleta-neto-lbl">NETO A PAGAR</span>
+            <span class="boleta-neto-val">${f(c.neto)}</span>
+        </div>
+
+        ${obs ? `
+        <div style="padding:.6rem 1.125rem; border-top:1px solid #e5e7eb; background:#fffbeb;">
+            <div style="font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#92400e; margin-bottom:.25rem;">Observaciones</div>
+            <p style="font-size:.72rem; color:#333; line-height:1.55; white-space:pre-wrap;">${obs}</p>
+        </div>` : ''}
+
+        <div class="boleta-footer">
+            <div class="boleta-firma">
+                ${S.firmas.emp
+                    ? `<img src="${S.firmas.emp}" alt="firma emp">`
+                    : '<div style="height:48px"></div>'
+                }
+                <div class="boleta-firma-line">Firma del Empleador<br><b>${empNombre}</b></div>
+            </div>
+            <div class="boleta-firma">
+                ${S.firmas.trab
+                    ? `<img src="${S.firmas.trab}" alt="firma trab">`
+                    : '<div style="height:48px"></div>'
+                }
+                <div class="boleta-firma-line">Firma del Trabajador<br><b>${trNombre}</b></div>
+            </div>
+        </div>
+
+        <div class="boleta-legal">
+            Emitida bajo Ley N° 27986 · Reglamento D.S. N° 015-2003-TR.
+            ${esQ ? `Pago correspondiente a la ${qLabel} quincena.` : 'Pago mensual completo (30 días).'}
+            EsSalud (${f(c.emp.essalud)}) a cargo exclusivo del empleador.
+        </div>
+    `;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TABLA DE COSTO ANUAL PROYECTADO
+//  ─────────────────────────────────────────────────────────────────
+//  Siempre proyecta sobre el BRUTO MENSUAL completo, independiente
+//  de la frecuencia de pago seleccionada (ese detalle es operativo,
+//  el costo anual es el mismo con 12 o 24 pagos).
+//
+//  Ley 29351: las gratificaciones están exentas de aportes a EsSalud
+//  y de retenciones previsionales (ONP/AFP), por lo que el cálculo
+//  aplica descuentos solo sobre los 12 meses de remuneración ordinaria.
+// ══════════════════════════════════════════════════════════════════
+function actualizarAnual(c) {
+    const B  = c.brutoMensual;           // sueldo mensual base
+    const f  = n => `S/ ${n.toFixed(2)}`;
+    const ff = n => `- S/ ${n.toFixed(2)}`;
+    const pct = (n, t) => t > 0 ? `${(n/t*100).toFixed(1)}%` : '0%';
+
+    // ── HABERES ──
+    const rem     = B * 12;              // remuneración 12 meses
+    const gratJul = B * 0.5;            // ½ sueldo julio   · Art. 13
+    const gratDic = B * 0.5;            // ½ sueldo diciembre
+    const totHab  = rem + gratJul + gratDic; // = B × 13
+
+    // ── DESCUENTOS (solo sobre remuneración ordinaria · Ley 29351) ──
+    // Gratificaciones exentas de ONP/AFP y EsSalud desde Ley 29351
+    const pensionMes  = c.desc.pension;
+    const comAfpMes   = c.desc.comAfp;
+    const segAfpMes   = c.desc.segAfp;
+    const anPension   = pensionMes  * 12;
+    const anComAfp    = comAfpMes   * 12;
+    const anSegAfp    = segAfpMes   * 12;
+    const totDesc     = anPension + anComAfp + anSegAfp;
+
+    // ── NETO ANUAL ──
+    // Neto ordinario (12 meses) + gratificaciones (íntegras, sin descuento)
+    const netoAnual = (c.neto * 12) + gratJul + gratDic;
+
+    // ── APORTES EMPLEADOR ──
+    // EsSalud también aplica solo sobre remuneración ordinaria · Ley 29351
+    const esAnual  = (B * LEGAL.ESSALUD) * 12;
+    const ctsAnual = B * LEGAL.CTS_F    * 12;  // = B / 24 × 12 = B / 2
+    const vacAnual = B * LEGAL.VAC_F    * 12;  // = B / 24 × 12 = B / 2
+    const totAp    = esAnual + ctsAnual + vacAnual;
+
+    // ── TOTALES ──
+    const costoTotal = rem + gratJul + gratDic + esAnual + ctsAnual + vacAnual;
+    const costoMes   = costoTotal / 12;
+
+    // ── ACTUALIZAR DOM ──
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    // KPIs
+    set('an-costo-total', f(costoTotal));
+    set('an-neto-total',  f(netoAnual));
+    set('an-neto-sub',    `${c.sistema !== 'NINGUNO' ? '12 sueldos netos + ' : ''}gratificaciones íntegras`);
+    set('an-costo-mes',   f(costoMes));
+
+    // Haberes
+    set('an-f-rem',   `${f(B)} × 12`);        set('an-rem',   f(rem));
+    set('an-f-gjul',  `${f(B)} × ½`);         set('an-gjul',  f(gratJul));
+    set('an-f-gdic',  `${f(B)} × ½`);         set('an-gdic',  f(gratDic));
+    set('an-tot-hab', f(totHab));
+
+    // Descuentos
+    const esAFP = c.sistema === 'AFP';
+    const esNing = c.sistema === 'NINGUNO';
+    set('an-lbl-pension', esNing ? 'Sin retención previsional' : c.desc.lbl.replace('(', '— 12 meses ('));
+    set('an-f-pension',   esNing ? '—' : `${f(pensionMes)} × 12`);
+    set('an-pension',     esNing ? 'S/ 0.00' : ff(anPension));
+    document.getElementById('an-row-afpcom').style.display = esAFP ? 'table-row' : 'none';
+    document.getElementById('an-row-afpseg').style.display = esAFP ? 'table-row' : 'none';
+    set('an-lbl-afpcom',  `Comisión AFP ${c.afp} — 12 meses`);
+    set('an-f-afpcom',    `${f(comAfpMes)} × 12`);
+    set('an-afpcom',      ff(anComAfp));
+    set('an-f-afpseg',    `${f(segAfpMes)} × 12`);
+    set('an-afpseg',      ff(anSegAfp));
+    set('an-tot-desc',    ff(totDesc));
+
+    // Neto
+    set('an-f-neto', `${f(c.neto)} × 12 + ${f(gratJul + gratDic)}`);
+    set('an-neto',   f(netoAnual));
+    set('an-neto-total', f(netoAnual));
+
+    // Aportes empleador
+    set('an-f-es',   `${f(B * LEGAL.ESSALUD)} × 12`); set('an-es',  f(esAnual));
+    set('an-f-cts',  `${f(B)} ÷ 2`);                  set('an-cts', f(ctsAnual));
+    set('an-f-vac',  `${f(B)} ÷ 2`);                  set('an-vac', f(vacAnual));
+    set('an-tot-ap', f(totAp));
+
+    // Grand totals
+    set('an-f-costo',    `${f(B)} × 13 + EsSalud + CTS + Vac.`);
+    set('an-costo',      f(costoTotal));
+    set('an-costo-prom', f(costoMes));
+
+    // Barra de composición proporcional
+    const segs = [
+        { id:'bar-rem',    val: rem     },
+        { id:'bar-gratif', val: gratJul + gratDic },
+        { id:'bar-es',     val: esAnual  },
+        { id:'bar-cts',    val: ctsAnual },
+        { id:'bar-vac',    val: vacAnual }
+    ];
+    segs.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (el) el.style.width = costoTotal > 0 ? pct(s.val, costoTotal) : '0%';
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  CAMBIAR FRECUENCIA — el decisor principal de la UI
+// ══════════════════════════════════════════════════════════════════
+function setFrecuencia(frec) {
+    S.frecuencia = frec;
+    const esQ = frec === 'quincenal';
+
+    document.getElementById('btn-mens').classList.toggle('active', !esQ);
+    document.getElementById('btn-quin').classList.toggle('active',  esQ);
+    document.getElementById('quincena-sel').style.display = esQ ? 'block' : 'none';
+
+    document.getElementById('badge-freq').textContent  = esQ ? 'Quincenal' : 'Mensual';
+    document.getElementById('badge-freq').className    = `badge ${esQ ? 'badge-green' : 'badge-blue'}`;
+    document.getElementById('hint-freq').textContent   = esQ
+        ? 'Se emiten dos (2) boletas por mes: una para el 1-15 y otra para el 16 al último día.'
+        : 'Una (1) boleta mensual · cubre 30 días de trabajo.';
+
+    recalcular();
+}
+
+function setQuincena(n) {
+    S.quincena = n;
+    document.getElementById('btn-q1').classList.toggle('active', n === 1);
+    document.getElementById('btn-q2').classList.toggle('active', n === 2);
+    recalcular();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  CAMBIAR SISTEMA DE PENSIONES
+// ══════════════════════════════════════════════════════════════════
+function setSistema(sis) {
+    S.sistema = sis;
+    ['ONP','AFP','NINGUNO'].forEach(s => {
+        const el = document.getElementById(`tab-${s.toLowerCase()}`);
+        if (el) el.classList.toggle('active', s === sis);
+    });
+    document.getElementById('afp-box').classList.toggle('visible', sis === 'AFP');
+    recalcular();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  EXPORTAR PDF — jsPDF + AutoTable
+// ══════════════════════════════════════════════════════════════════
+function exportarPDF() {
+    if (!S.calc || S.calc.bruto === 0) {
+        toast('⚠️ Ingresa el sueldo antes de exportar'); return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const c   = S.calc;
+    const f   = n => `S/ ${n.toFixed(2)}`;
+    const g   = id => document.getElementById(id).value || '—';
+    const fF  = d => d && d !== '—' ? d.split('-').reverse().join('/') : '—';
+
+    const empNom = g('emp-nombre'), empDNI = g('emp-dni'), empDir = g('emp-dir');
+    const trNom  = g('trab-nombre'), trDNI = g('trab-dni');
+    const cargo  = g('trab-cargo'), modal = g('trab-modalidad'), ingreso = g('trab-ingreso');
+    const periodoTxt = g('periodo') !== '—' ? fmtPeriodo(g('periodo'), c.frecuencia, c.quincena) : 'Sin definir';
+    const obs        = document.getElementById('observaciones').value.trim();
+    const numBoleta  = document.getElementById('num-boleta').value.trim();
+    const esQ = c.frecuencia === 'quincenal';
+    const qLabel = c.quincena === 1 ? 'primera (días 1-15)' : 'segunda (días 16 al último)';
+
+    // ── Encabezado ──
+    doc.setFillColor(30,58,95);
+    doc.rect(0,0,210,34,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(16); doc.setFont('helvetica','bold');
+    doc.text(`BOLETA DE PAGO${numBoleta ? `  ·  N° ${numBoleta}` : ''}`, 105, 13, {align:'center'});
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text('Trabajadores del Hogar — Ley N° 27986', 105, 20, {align:'center'});
+    doc.text(`Período: ${periodoTxt}`, 105, 27, {align:'center'});
+
+    let y = 41;
+
+    // ── Info Empleador / Trabajador ──
+    const colores = [30,58,95];
+    doc.setTextColor(...colores);
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.text('DATOS DEL EMPLEADOR', 15, y);
+    doc.text('DATOS DEL TRABAJADOR', 112, y);
+    doc.setDrawColor(...colores); doc.setLineWidth(0.4);
+    doc.line(14, y+1.5, 98, y+1.5);
+    doc.line(111, y+1.5, 196, y+1.5);
+
+    y += 6;
+    const empRows = [['Nombre:', empNom],['DNI:', empDNI],['Domicilio:', empDir]];
+    const trRows  = [['Nombre:', trNom],['DNI:', trDNI],['Cargo:', cargo],['Modalidad:', modal],
+                     ['Ingreso:', fF(ingreso)]];
+    const maxR = Math.max(empRows.length, trRows.length);
+    doc.setTextColor(50,50,50);
+    for (let i = 0; i < maxR; i++) {
+        doc.setFont('helvetica','bold');
+        if (empRows[i]) { doc.setFontSize(7); doc.text(empRows[i][0], 15, y); doc.setFont('helvetica','normal'); doc.text(empRows[i][1], 34, y); }
+        if (trRows[i])  { doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text(trRows[i][0], 112, y); doc.setFont('helvetica','normal'); doc.text(trRows[i][1], 131, y); }
+        y += 4.5;
+    }
+    y += 2;
+
+    // ── Tabla Haberes ──
+    doc.autoTable({
+        startY: y,
+        head: [['CONCEPTO','TIPO','MONTO']],
+        body: [[`Remuneración ${esQ ? 'Quincenal' : 'Mensual'} (${c.diasPeriodo} días)`, 'Haber', f(c.bruto)]],
+        headStyles:{ fillColor:[30,58,95], textColor:255, fontSize:7.5, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7.5 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:38,halign:'center'}, 2:{cellWidth:38,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    y = doc.lastAutoTable.finalY + 2;
+
+    // ── Tabla Descuentos ──
+    const descRows = [];
+    if (c.sistema !== 'NINGUNO') descRows.push([c.desc.lbl, 'Descuento', f(c.desc.pension)]);
+    if (c.sistema === 'AFP') {
+        descRows.push([`Comisión AFP ${c.afp}`, 'Descuento', f(c.desc.comAfp)]);
+        descRows.push(['Prima de Seguro AFP',   'Descuento', f(c.desc.segAfp)]);
+    }
+    if (c.desc.otros > 0) descRows.push(['Adelantos / Otros', 'Descuento', f(c.desc.otros)]);
+    if (!descRows.length) descRows.push(['Sin descuentos en este período', '—', 'S/ 0.00']);
+    descRows.push([{content:'TOTAL DESCUENTOS',styles:{fontStyle:'bold'}}, '', {content:f(c.desc.total),styles:{fontStyle:'bold'}}]);
+
+    doc.autoTable({
+        startY: y,
+        head: [['CONCEPTO','TIPO','MONTO']],
+        body: descRows,
+        headStyles:{ fillColor:[160,30,30], textColor:255, fontSize:7.5, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7.5 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:38,halign:'center'}, 2:{cellWidth:38,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    y = doc.lastAutoTable.finalY + 4;
+
+    // ── Caja Neto ──
+    doc.setFillColor(30,58,95);
+    doc.roundedRect(14, y, 182, 13, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text('NETO A PAGAR:', 20, y+8.5);
+    doc.text(f(c.neto), 195, y+8.5, {align:'right'});
+    y += 18;
+
+    // ── Tabla Aportes Empleador ──
+    doc.autoTable({
+        startY: y,
+        head: [['APORTES Y PROVISIONES DEL EMPLEADOR (Informativos)','FÓRMULA','MONTO']],
+        body: [
+            ['EsSalud (9%) — Seguro de Salud',                      `${f(c.bruto)} × 9%`,               f(c.emp.essalud)],
+            ['Prov. CTS (15 días/año · Art. 12)',                    `${f(c.brutoMensual)}/24 ÷ ${c.divisor}`, f(c.prov.cts)],
+            ['Prov. Gratificaciones (½ jul + ½ dic · Art. 13)',      `${f(c.brutoMensual)}/12 ÷ ${c.divisor}`, f(c.prov.gratif)],
+            ['Prov. Vacaciones (15 días/año · Art. 14)',             `${f(c.brutoMensual)}/24 ÷ ${c.divisor}`, f(c.prov.vac)],
+            [{content:'COSTO TOTAL DEL EMPLEADOR',styles:{fontStyle:'bold'}}, '',
+             {content:f(c.costoTotal),styles:{fontStyle:'bold',textColor:[30,58,95]}}]
+        ],
+        headStyles:{ fillColor:[22,163,74], textColor:255, fontSize:7.5, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    y = doc.lastAutoTable.finalY + 4;
+
+    // ── Observaciones (solo si hay texto) ──
+    if (obs) {
+        doc.setFillColor(255, 251, 235);
+        doc.setDrawColor(217, 119, 6);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(14, y, 182, 0, 2, 2, 'S'); // borde superior ámbar
+        doc.rect(14, y, 182, 0, 'S');
+        // Calcular altura necesaria
+        doc.setFontSize(7); doc.setFont('helvetica','normal');
+        const obsLines = doc.splitTextToSize(obs, 173);
+        const obsH = obsLines.length * 4 + 10;
+        doc.setFillColor(255, 251, 235);
+        doc.rect(14, y, 182, obsH, 'F');
+        doc.setDrawColor(253, 211, 77); doc.setLineWidth(0.5);
+        doc.line(14, y, 196, y); // línea superior ámbar
+        doc.setTextColor(146, 64, 14);
+        doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+        doc.text('OBSERVACIONES', 16, y + 5);
+        doc.setFont('helvetica','normal'); doc.setTextColor(60, 60, 60);
+        doc.text(obsLines, 16, y + 10);
+        y += obsH + 6;
+    }
+
+    y += 2;
+
+    // ── Firmas ──
+    const pH = doc.internal.pageSize.getHeight();
+    if (y + 45 > pH - 15) { doc.addPage(); y = 20; }
+
+    doc.setDrawColor(120,120,120); doc.setLineWidth(0.3);
+    doc.line(20,y+32,88,y+32);
+    doc.line(122,y+32,190,y+32);
+    doc.setTextColor(80,80,80); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.text('Firma del Empleador', 54,y+37,{align:'center'});
+    doc.text(empNom, 54,y+42,{align:'center'});
+    doc.text(`DNI: ${empDNI}`, 54,y+47,{align:'center'});
+    doc.text('Firma del Trabajador', 156,y+37,{align:'center'});
+    doc.text(trNom, 156,y+42,{align:'center'});
+    doc.text(`DNI: ${trDNI}`, 156,y+47,{align:'center'});
+
+    if (S.firmas.emp)  { try { doc.addImage(S.firmas.emp,  'PNG',20,y+8,68,22); } catch(e){} }
+    if (S.firmas.trab) { try { doc.addImage(S.firmas.trab,'PNG',122,y+8,68,22); } catch(e){} }
+    y += 52;
+
+    // ── Nota legal ──
+    doc.setFillColor(248,249,250);
+    doc.rect(14,y,182,20,'F');
+    doc.setFontSize(6); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
+    const nota = `Boleta emitida conforme a la Ley N° 27986 — Ley de los Trabajadores del Hogar y su Reglamento D.S. N° 015-2003-TR. ${esQ ? `Pago correspondiente a la ${qLabel} quincena.` : 'Pago mensual completo (30 días).'} EsSalud (${f(c.emp.essalud)}) y provisiones (CTS, Gratificaciones, Vacaciones) son obligación y costo exclusivo del empleador. CTS se deposita en entidad bancaria autorizada en mayo y noviembre de cada año. Documento generado localmente con NóminaHogar Perú — no requiere firma digital.`;
+    doc.text(doc.splitTextToSize(nota, 177), 16, y+5);
+
+    // ══════════════════════════════════════════════════════════════
+    // PÁGINA 2 — PROYECCIÓN DE COSTO ANUAL
+    // ══════════════════════════════════════════════════════════════
+    doc.addPage();
+    const B       = c.brutoMensual;
+    const rem     = B * 12;
+    const gratJul = B * 0.5;
+    const gratDic = B * 0.5;
+    const totHab  = rem + gratJul + gratDic;
+    const anPen   = c.desc.pension  * 12;
+    const anCom   = c.desc.comAfp   * 12;
+    const anSeg   = c.desc.segAfp   * 12;
+    const totDesc = anPen + anCom + anSeg;
+    const netoAn  = (c.neto * 12) + gratJul + gratDic;
+    const esAn    = (B * LEGAL.ESSALUD) * 12;
+    const ctsAn   = B * LEGAL.CTS_F * 12;
+    const vacAn   = B * LEGAL.VAC_F * 12;
+    const totAp   = esAn + ctsAn + vacAn;
+    const costoAn = totHab + esAn + ctsAn + vacAn;
+    const costoMp = costoAn / 12;
+
+    // ── Encabezado página 2 ──
+    doc.setFillColor(30,58,95);
+    doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('PROYECCIÓN DE COSTO ANUAL', 105, 12, {align:'center'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(`${trNom} · Remuneración mensual: ${f(B)} · ${periodoTxt}`, 105, 20, {align:'center'});
+
+    let ay = 34;
+
+    // ── KPI boxes (3 columnas) ──
+    const boxes = [
+        { lbl:'Costo Total Anual · Empleador', val:f(costoAn), sub:'Rem. + Gratif. + EsSalud + CTS + Vac.', r:30,g:58,b:95 },
+        { lbl:'Neto Anual · Trabajador',        val:f(netoAn),  sub:'12 sueldos netos + gratificaciones íntegras', r:20,g:100,b:60 },
+        { lbl:'Costo Mensual Promedio',          val:f(costoMp), sub:'Costo anual ÷ 12', r:180,g:100,b:10 }
+    ];
+    const bw = 59, bh = 20, gap = 2;
+    boxes.forEach((bx, i) => {
+        const bx0 = 14 + i*(bw+gap);
+        doc.setFillColor(bx.r, bx.g, bx.b);
+        doc.roundedRect(bx0, ay, bw, bh, 2, 2, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(6); doc.setFont('helvetica','normal');
+        doc.text(bx.lbl.toUpperCase(), bx0+3, ay+5);
+        doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text(bx.val, bx0+3, ay+13);
+        doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+        doc.text(bx.sub, bx0+3, ay+18, {maxWidth: bw-4});
+    });
+    ay += bh + 6;
+
+    // ── Tabla Haberes Anuales ──
+    doc.autoTable({
+        startY: ay,
+        head: [['HABERES ANUALES DEL TRABAJADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: [
+            [`Remuneración ordinaria (12 meses)`,           `${f(B)} × 12`,   f(rem)],
+            [`Gratificación Julio — ½ sueldo (Art. 13)`,    `${f(B)} × 0.5`,  f(gratJul)],
+            [`Gratificación Diciembre — ½ sueldo (Art. 13)`,`${f(B)} × 0.5`,  f(gratDic)],
+            [{content:'Total Haberes Brutos Anuales', styles:{fontStyle:'bold'}}, '',
+             {content:f(totHab), styles:{fontStyle:'bold'}}]
+        ],
+        headStyles:{ fillColor:[30,58,95], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Tabla Descuentos Anuales ──
+    const descAnRows = [];
+    if (c.sistema !== 'NINGUNO') {
+        descAnRows.push([`${c.desc.lbl} — 12 meses`, `${f(c.desc.pension)} × 12`, `- ${f(anPen)}`]);
+    }
+    if (c.sistema === 'AFP') {
+        descAnRows.push([`Comisión AFP ${c.afp} — 12 meses`, `${f(c.desc.comAfp)} × 12`, `- ${f(anCom)}`]);
+        descAnRows.push([`Prima de Seguro AFP — 12 meses`,    `${f(c.desc.segAfp)} × 12`, `- ${f(anSeg)}`]);
+    }
+    descAnRows.push([{content:'Gratificaciones — exentas de descuentos', styles:{fontStyle:'italic', textColor:[120,120,120]}},
+                     {content:'Ley 29351', styles:{textColor:[120,120,120], halign:'center'}},
+                     {content:'S/ 0.00', styles:{textColor:[120,120,120], halign:'right'}}]);
+    descAnRows.push([{content:'Total Descuentos Anuales', styles:{fontStyle:'bold'}}, '',
+                     {content:`- ${f(totDesc)}`, styles:{fontStyle:'bold', textColor:[180,30,30]}}]);
+
+    doc.autoTable({
+        startY: ay,
+        head: [['DESCUENTOS AL TRABAJADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: descAnRows,
+        headStyles:{ fillColor:[160,30,30], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Caja Neto Anual ──
+    doc.setFillColor(20,100,60);
+    doc.roundedRect(14, ay, 182, 11, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('NETO ANUAL AL TRABAJADOR:', 19, ay+7.5);
+    doc.text(f(netoAn), 195, ay+7.5, {align:'right'});
+    ay += 15;
+
+    // ── Tabla Aportes + Provisiones Empleador ──
+    doc.autoTable({
+        startY: ay,
+        head: [['APORTES Y PROVISIONES — EMPLEADOR', 'FÓRMULA', 'MONTO ANUAL']],
+        body: [
+            [`EsSalud 9% — 12 meses (Ley 26790)\n* Gratificaciones exentas · Ley 29351`,
+             `${f(B*LEGAL.ESSALUD)} × 12`, f(esAn)],
+            [`CTS — depósito anual (Art. 12 Ley 27986)\n15 días de rem. por año de servicio`,
+             `${f(B)} ÷ 2`, f(ctsAn)],
+            [`Vacaciones — 15 días por año (Art. 14 Ley 27986)`,
+             `${f(B)} ÷ 2`, f(vacAn)],
+            [{content:'Total Aportes + Provisiones', styles:{fontStyle:'bold'}}, '',
+             {content:f(totAp), styles:{fontStyle:'bold'}}]
+        ],
+        headStyles:{ fillColor:[22,163,74], textColor:255, fontSize:7, fontStyle:'bold' },
+        bodyStyles:{ fontSize:7, minCellHeight:10 },
+        columnStyles:{ 0:{cellWidth:103}, 1:{cellWidth:45,halign:'center'}, 2:{cellWidth:31,halign:'right'} },
+        margin:{ left:14, right:14 }, theme:'grid'
+    });
+    ay = doc.lastAutoTable.finalY + 2;
+
+    // ── Caja Costo Total Anual ──
+    doc.setFillColor(30,58,95);
+    doc.roundedRect(14, ay, 182, 11, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text('COSTO TOTAL ANUAL — EMPLEADOR:', 19, ay+7.5);
+    doc.text(f(costoAn), 195, ay+7.5, {align:'right'});
+    ay += 13;
+
+    // Fila costo mensual promedio
+    doc.setFillColor(241,245,249);
+    doc.rect(14, ay, 182, 9, 'F');
+    doc.setTextColor(30,58,95);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Costo mensual promedio (anual ÷ 12):', 19, ay+6);
+    doc.text(f(costoMp), 195, ay+6, {align:'right'});
+    ay += 14;
+
+    // ── Nota legal página 2 ──
+    doc.setFillColor(248,249,250);
+    doc.rect(14,ay,182,16,'F');
+    doc.setFontSize(6); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
+    const nota2 = `Proyección calculada sobre remuneración mensual de ${f(B)}. Gratificaciones (julio y diciembre) exentas de EsSalud y aportes previsionales conforme Ley N° 29351. CTS equivale a 15 días de remuneración por año (Art. 12, Ley 27986); se deposita en entidad bancaria autorizada en mayo y noviembre. Vacaciones: 15 días calendario por año de servicio (Art. 14). Los montos son proyecciones referenciales sujetas a variación según días efectivos trabajados y ajustes de remuneración. Generado con NóminaHogar Perú.`;
+    doc.text(doc.splitTextToSize(nota2, 177), 16, ay+5);
+
+    // Guardar PDF
+    const pdfFilename = `Boleta_${trNom.replace(/\s+/g,'_')}_${periodoTxt.replace(/\s+/g,'_')}.pdf`;
+    doc.save(pdfFilename);
+
+    // Auto-registrar en historial con nombre del archivo y timestamp
+    if (S.calc && S.calc.bruto > 0) {
+        const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+        hist.unshift(_buildRegistro(pdfFilename));
+        localStorage.setItem('nh_hist', JSON.stringify(hist));
+        renderHistorial();
+    }
+
+    toast('✅ PDF generado · boleta registrada en historial');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GESTIÓN DE FIRMAS — Drag & Drop agnóstico
+// ══════════════════════════════════════════════════════════════════
+function onDragOver(e, tipo)  { e.preventDefault(); document.getElementById(`dz-${tipo}`).classList.add('drag-over'); }
+function onDragLeave(e, tipo) { document.getElementById(`dz-${tipo}`).classList.remove('drag-over'); }
+function onDrop(e, tipo)      { e.preventDefault(); onDragLeave(e, tipo); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) procesarFirma(f, tipo); }
+function loadFirma(e, tipo)   { const f = e.target.files[0]; if (f) procesarFirma(f, tipo); }
+
+function procesarFirma(file, tipo) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const url = e.target.result;
+        S.firmas[tipo] = url;
+        document.getElementById(`preview-${tipo}`).innerHTML =
+            `<img src="${url}" class="firma-preview-img" alt="firma">
+             <p style="margin-top:.35rem;font-size:.7rem;color:var(--green);">✅ Firma cargada</p>`;
+        recalcular(); // La boleta se actualiza con la firma
+    };
+    reader.readAsDataURL(file);
+}
+
+function guardarFirmas() {
+    localStorage.setItem('nh_firmas', JSON.stringify(S.firmas));
+    toast('✅ Firmas guardadas en el navegador');
+}
+
+function borrarFirmas() {
+    S.firmas = { emp: null, trab: null };
+    localStorage.removeItem('nh_firmas');
+    ['emp','trab'].forEach(t => {
+        document.getElementById(`preview-${t}`).innerHTML =
+            `<div class="drop-icon">✍️</div><p>Arrastra aquí<br><small>o clic para seleccionar</small></p>`;
+    });
+    recalcular();
+    toast('🗑️ Firmas eliminadas');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HISTORIAL DE PAGOS — localStorage
+// ══════════════════════════════════════════════════════════════════
+
+// Construye el objeto de registro; pdfFilename es null si se guarda
+// manualmente sin exportar, o el nombre del archivo cuando viene
+// desde exportarPDF().
+function _buildRegistro(pdfFilename) {
+    const now = new Date();
+    return {
+        id:          Date.now(),
+        fecha:       now.toLocaleDateString('es-PE'),
+        fechaISO:    now.toISOString(),
+        periodo:     document.getElementById('periodo').value || '—',
+        numBoleta:   document.getElementById('num-boleta').value.trim() || null,
+        trab:        document.getElementById('trab-nombre').value || 'Sin nombre',
+        emp:         document.getElementById('emp-nombre').value || '—',
+        cargo:       document.getElementById('trab-cargo').value,
+        frec:        S.calc.frecuencia,
+        quincena:    S.quincena,
+        brutoMes:    S.calc.brutoMensual,
+        neto:        S.calc.neto,
+        costo:       S.calc.costoTotal,
+        sistema:     S.calc.sistema,
+        archivoPDF:  pdfFilename || null,
+        fechaExport: pdfFilename ? now.toLocaleString('es-PE') : null
+    };
+}
+
+// Sugiere el siguiente número correlativo basándose en el historial guardado
+function autoNumerarBoleta() {
+    const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    const nums = hist
+        .map(r => r.numBoleta)
+        .filter(Boolean)
+        .map(n => parseInt(n.replace(/\D/g,''), 10))
+        .filter(n => !isNaN(n));
+    const siguiente = nums.length ? Math.max(...nums) + 1 : 1;
+    const año = new Date().getFullYear();
+    document.getElementById('num-boleta').value = `${String(siguiente).padStart(3,'0')}-${año}`;
+    recalcular();
+    toast(`🔢 Número asignado: ${document.getElementById('num-boleta').value}`);
+}
+
+function guardarEnHistorial() {
+    if (!S.calc || S.calc.bruto === 0) { toast('⚠️ Calcula una nómina primero'); return; }
+    const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    hist.unshift(_buildRegistro(null));
+    localStorage.setItem('nh_hist', JSON.stringify(hist));
+    renderHistorial();
+    toast('✅ Boleta guardada en el historial');
+}
+
+function renderHistorial() {
+    const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    document.getElementById('badge-hist').textContent = `${hist.length} registro${hist.length !== 1 ? 's' : ''}`;
+    const tbody = document.getElementById('hist-body');
+
+    if (!hist.length) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div><p>Sin registros. Guarda tu primera boleta.</p></div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = hist.map(r => {
+        const esQ    = r.frec === 'quincenal';
+        const label  = esQ ? `Quin. ${r.quincena === 1 ? '1ª' : '2ª'}` : 'Mensual';
+        const cls    = esQ ? 'badge-amber' : 'badge-blue';
+        const pLabel = [
+            r.periodo !== '—' ? r.periodo : r.fecha,
+            r.numBoleta ? `<small style="color:var(--muted)">N° ${r.numBoleta}</small>` : ''
+        ].filter(Boolean).join('<br>');
+
+        // Celda PDF: muestra nombre del archivo + fecha de exportación si existe
+        const pdfCell = r.archivoPDF
+            ? `<span style="color:var(--accent);font-weight:600;font-size:.7rem;word-break:break-all;">📄 ${r.archivoPDF}</span>
+               <br><small style="color:var(--muted)">${r.fechaExport}</small>`
+            : `<span style="color:var(--muted);font-size:.75rem;">—</span>`;
+
+        return `<tr>
+            <td>${pLabel}</td>
+            <td><b>${r.trab}</b><br><small style="color:var(--muted)">${r.cargo}</small></td>
+            <td>S/ ${r.brutoMes.toFixed(2)}</td>
+            <td><b style="color:var(--green)">S/ ${r.neto.toFixed(2)}</b></td>
+            <td><span class="badge ${cls}">${label}</span></td>
+            <td style="min-width:160px">${pdfCell}</td>
+            <td><button class="btn-outline-red" onclick="eliminarReg(${r.id})">🗑️</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function eliminarReg(id) {
+    let hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    localStorage.setItem('nh_hist', JSON.stringify(hist.filter(r => r.id !== id)));
+    renderHistorial(); toast('🗑️ Registro eliminado');
+}
+
+function borrarHistorial() {
+    if (!confirm('¿Borrar TODO el historial de pagos? Esta acción no se puede deshacer.')) return;
+    localStorage.removeItem('nh_hist');
+    renderHistorial(); toast('🗑️ Historial borrado');
+}
+
+function exportarJSON() {
+    const hist = JSON.parse(localStorage.getItem('nh_hist') || '[]');
+    if (!hist.length) { toast('⚠️ No hay registros para exportar'); return; }
+    const blob = new Blob([JSON.stringify({ app:'NóminaHogar Perú', exportado:new Date().toISOString(), registros:hist }, null, 2)], {type:'application/json'});
+    const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:`historial_nomina_${new Date().toISOString().slice(0,10)}.json` });
+    a.click(); URL.revokeObjectURL(a.href);
+    toast('✅ Historial exportado como JSON');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  UTILIDADES
+// ══════════════════════════════════════════════════════════════════
+function fmtPeriodo(yyyymm, frec, q) {
+    const [y, m] = yyyymm.split('-');
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const nom = meses[+m - 1];
+    return frec === 'quincenal'
+        ? `${q === 1 ? '01-15' : '16-último'} ${nom} ${y}`
+        : `${nom} ${y}`;
+}
+
+function limpiarTrabajador() {
+    ['trab-nombre','trab-dni','trab-ingreso','otros-desc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = id === 'otros-desc' ? '0' : '';
+    });
+    document.getElementById('sueldo').value = LEGAL.RMV;
+    recalcular();
+    toast('🔄 Datos del trabajador limpiados');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  IMPRIMIR BOLETA — copia el HTML al frame de impresión y llama
+//  window.print(). El @media print oculta todo excepto #print-frame,
+//  por lo que el diálogo del SO solo verá la boleta en A4.
+//  afterprint restaura el estado para no romper la UI.
+// ══════════════════════════════════════════════════════════════════
+function imprimirBoleta() {
+    if (!S.calc || S.calc.bruto === 0) { toast('⚠️ Ingresa el sueldo antes de imprimir'); return; }
+
+    const frame  = document.getElementById('print-frame');
+    const boleta = document.getElementById('boleta');
+
+    // Copiar el HTML actual de la boleta + los estilos necesarios
+    frame.innerHTML = `
+        <style>
+            * { box-sizing:border-box; margin:0; padding:0; font-family:'Courier New',monospace; }
+            body { background:#fff; }
+            .boleta { border:1px solid #d1d5db; border-radius:6px; overflow:hidden; }
+            .boleta-hdr { background:#1e3a5f; color:#fff; padding:.875rem 1.125rem; text-align:center; }
+            .boleta-hdr h3 { font-size:1rem; font-weight:800; }
+            .boleta-hdr p  { font-size:.65rem; opacity:.8; margin-top:.15rem; }
+            .boleta-periodo { display:inline-block; margin-top:.4rem; background:rgba(255,255,255,.15); padding:.15rem .6rem; border-radius:4px; font-size:.7rem; }
+            .boleta-body { padding:.875rem 1.125rem; }
+            .boleta-sec { margin-bottom:.875rem; }
+            .boleta-sec-title { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#1e3a5f; border-bottom:1.5px solid #1e3a5f; padding-bottom:.2rem; margin-bottom:.4rem; }
+            .boleta-row { display:flex; justify-content:space-between; font-size:.72rem; padding:.15rem 0; color:#333; }
+            .boleta-row.tot { font-weight:800; border-top:1px solid #ccc; padding-top:.3rem; margin-top:.2rem; color:#1e3a5f; }
+            .boleta-neto { background:#1e3a5f; color:#fff; padding:.6rem 1.125rem; display:flex; justify-content:space-between; align-items:center; }
+            .boleta-neto-lbl { font-size:.8rem; font-weight:700; }
+            .boleta-neto-val { font-size:1.2rem; font-weight:800; }
+            .boleta-footer { padding:.75rem 1.125rem; display:grid; grid-template-columns:1fr 1fr; gap:.75rem; border-top:1px solid #eee; }
+            .boleta-firma { text-align:center; }
+            .boleta-firma img { max-height:52px; max-width:100%; object-fit:contain; }
+            .boleta-firma-line { border-top:1px solid #888; padding-top:.2rem; margin-top:1.5rem; font-size:.6rem; color:#666; line-height:1.4; }
+            .boleta-legal { padding:.5rem 1.125rem; background:#f9fafb; border-top:1px solid #eee; font-size:.6rem; color:#94a3b8; text-align:center; line-height:1.5; }
+        </style>
+        <div class="boleta">${boleta.innerHTML}</div>
+    `;
+
+    // Mostrar el frame, imprimir, ocultarlo al terminar
+    frame.style.display = 'block';
+    window.print();
+    window.addEventListener('afterprint', () => {
+        frame.style.display = 'none';
+        frame.innerHTML = '';
+    }, { once: true });
+}
+
+let _toastTimer;
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.transform = 'translateY(0)'; el.style.opacity = '1';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.style.transform='translateY(80px)'; el.style.opacity='0'; }, 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ══════════════════════════════════════════════════════════════════
+function init() {
+    // Fecha del período = mes actual
+    const hoy = new Date();
+    document.getElementById('periodo').value =
+        `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+
+    // Restaurar firmas guardadas
+    const fSaved = localStorage.getItem('nh_firmas');
+    if (fSaved) {
+        const fObj = JSON.parse(fSaved);
+        ['emp','trab'].forEach(t => {
+            if (fObj[t]) {
+                S.firmas[t] = fObj[t];
+                document.getElementById(`preview-${t}`).innerHTML =
+                    `<img src="${fObj[t]}" class="firma-preview-img" alt="firma">
+                     <p style="margin-top:.35rem;font-size:.7rem;color:var(--green);">✅ Firma guardada</p>`;
+            }
+        });
+    }
+
+    // Cargar historial
+    renderHistorial();
+
+    // Listeners de recálculo en tiempo real
+    ['sueldo','otros-desc','emp-nombre','emp-dni','emp-dir',
+     'trab-nombre','trab-dni','trab-cargo','trab-modalidad',
+     'trab-ingreso','periodo','observaciones','num-boleta']
+    .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', recalcular);
+        if (el) el.addEventListener('change', recalcular);
+    });
+
+    // Cálculo inicial
+    recalcular();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
