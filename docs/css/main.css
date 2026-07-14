@@ -17,6 +17,9 @@ a { color: var(--c-primario); text-decoration: none; }
 /* ── App layout ───────────────────────────────────── */
 #app { display: flex; flex-direction: column; min-height: 100dvh; }
 
+/* El atributo [hidden] debe siempre ganar sobre cualquier display declarado */
+[hidden] { display: none !important; }
+
 /* ── App header ───────────────────────────────────── */
 .app-header {
   display: flex;
