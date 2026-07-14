@@ -7,8 +7,10 @@ import {
   getConfig, setConfig,
   getUltimoTrabId, setUltimoTrabId,
   siguienteNumBoleta,
+  modoSupabase,
 } from './storage.js';
 import { generarLink, generarPayload, mostrarQR, compartirUrl } from './share.js';
+import { cerrarSesion } from './ui-auth.js';
 
 // ── Estado de la sesión ────────────────────────────
 const W = {
@@ -1395,6 +1397,23 @@ export function init() {
 
   // Botón empleador (header)
   document.getElementById('btn-empleador')?.addEventListener('click', abrirModalEmpleador);
+
+  // Botón logout / info de usuario (solo en modo Supabase)
+  if (modoSupabase()) {
+    const email = document.getElementById('modo-empleador')?.dataset?.userEmail || '';
+    const hdr   = document.querySelector('.app-header');
+    if (hdr) {
+      const userInfo = document.createElement('div');
+      userInfo.className = 'user-info';
+      userInfo.innerHTML = `
+        ${email ? `<span class="user-email" title="${esc(email)}">${esc(email.split('@')[0])}</span>` : ''}
+        <button class="btn btn-secundario btn-sm" id="btn-logout">Salir</button>`;
+      hdr.appendChild(userInfo);
+      document.getElementById('btn-logout').addEventListener('click', async () => {
+        await cerrarSesion();
+      });
+    }
+  }
 
   // Renderizar
   renderWizard();

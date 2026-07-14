@@ -1,3 +1,9 @@
+import {
+  sbPushEmpleador,
+  sbUpsertTrabajador, sbDeleteTrabajador,
+  sbUpsertBoleta,    sbDeleteBoleta,
+} from './supabase.js';
+
 const P = 'nh.v2.';
 
 function get(key) {
@@ -11,59 +17,136 @@ function nanoid(len = 8) {
     .map(b => b.toString(36)).join('').slice(0, len);
 }
 
+// ══════════════════════════════════════════════════
+//  Modo Supabase (activado desde ui-auth.js)
+// ══════════════════════════════════════════════════
+let _sb  = null;   // Supabase client
+let _uid = null;   // auth.users UUID
+let _eid = null;   // nomina_empleadores UUID
+let _c   = null;   // caché en memoria (null = modo localStorage)
+
+/** Llama ui-auth.js cuando el usuario selecciona empleador */
+export function activarModoSupabase(sb, userId, empleadorId, data) {
+  _sb  = sb;
+  _uid = userId;
+  _eid = empleadorId;
+  _c   = {
+    empleador:    data.empleador    || {},
+    trabajadores: data.trabajadores || [],
+    boletas:      data.boletas      || [],
+    firmas:       data.firmas       || {},
+    config:       { autonumerar: true, siguienteNum: 1 },
+  };
+}
+
+export function desactivarModoSupabase() {
+  _sb = _uid = _eid = _c = null;
+}
+
+export const modoSupabase      = () => !!_c;
+export const getEmpleadorIdSb  = () => _eid;
+export const getUserEmail      = () => null; // se sobreescribe desde ui-auth.js
+
 // ── Empleador ──────────────────────────────────────
-export const getEmpleador  = ()  => get('empleador') || {};
-export const setEmpleador  = (d) => set('empleador', d);
+export const getEmpleador = () => _c ? { ..._c.empleador } : (get('empleador') || {});
+
+export function setEmpleador(d) {
+  if (_c) {
+    _c.empleador = d;
+    sbPushEmpleador(_sb, _eid, d.nombre, d, _c.firmas).catch(console.error);
+  } else {
+    set('empleador', d);
+  }
+}
 
 // ── Trabajadores ───────────────────────────────────
-export const getTrabajadores = () => get('trabajadores') || [];
+export const getTrabajadores = () => _c ? [..._c.trabajadores] : (get('trabajadores') || []);
 
 export function addTrabajador(t) {
-  const list = getTrabajadores();
   const nuevo = { ...t, id: nanoid(), creadoEn: new Date().toISOString() };
-  list.push(nuevo);
-  set('trabajadores', list);
+  if (_c) {
+    _c.trabajadores.push(nuevo);
+    sbUpsertTrabajador(_sb, _eid, _uid, nuevo).catch(console.error);
+  } else {
+    const list = get('trabajadores') || [];
+    list.push(nuevo);
+    set('trabajadores', list);
+  }
   return nuevo;
 }
 
 export function updateTrabajador(id, changes) {
-  const list = getTrabajadores().map(t => t.id === id ? { ...t, ...changes } : t);
-  set('trabajadores', list);
+  if (_c) {
+    _c.trabajadores = _c.trabajadores.map(t => t.id === id ? { ...t, ...changes } : t);
+    const updated = _c.trabajadores.find(t => t.id === id);
+    if (updated) sbUpsertTrabajador(_sb, _eid, _uid, updated).catch(console.error);
+  } else {
+    set('trabajadores', (get('trabajadores') || []).map(t => t.id === id ? { ...t, ...changes } : t));
+  }
 }
 
 export function deleteTrabajador(id) {
-  set('trabajadores', getTrabajadores().filter(t => t.id !== id));
+  if (_c) {
+    _c.trabajadores = _c.trabajadores.filter(t => t.id !== id);
+    sbDeleteTrabajador(_sb, id).catch(console.error);
+  } else {
+    set('trabajadores', (get('trabajadores') || []).filter(t => t.id !== id));
+  }
 }
 
 export const getTrabajador = (id) => getTrabajadores().find(t => t.id === id) || null;
 
 // ── Boletas ────────────────────────────────────────
-export const getBoletas = () => get('boletas') || [];
+export const getBoletas = () => _c ? [..._c.boletas] : (get('boletas') || []);
 
 export function addBoleta(b) {
   const id = nanoid();
   const boleta = { ...b, id };
-  const list = getBoletas();
-  list.unshift(boleta);
-  set('boletas', list);
+  if (_c) {
+    _c.boletas.unshift(boleta);
+    sbUpsertBoleta(_sb, _eid, _uid, boleta).catch(console.error);
+  } else {
+    const list = get('boletas') || [];
+    list.unshift(boleta);
+    set('boletas', list);
+  }
   return boleta;
 }
 
 export const getBoleta = (id) => getBoletas().find(b => b.id === id) || null;
 
 export function updateBoleta(id, changes) {
-  set('boletas', getBoletas().map(b => b.id === id ? { ...b, ...changes } : b));
+  if (_c) {
+    _c.boletas = _c.boletas.map(b => b.id === id ? { ...b, ...changes } : b);
+    const updated = _c.boletas.find(b => b.id === id);
+    if (updated) sbUpsertBoleta(_sb, _eid, _uid, updated).catch(console.error);
+  } else {
+    set('boletas', (get('boletas') || []).map(b => b.id === id ? { ...b, ...changes } : b));
+  }
 }
 
 export function deleteBoleta(id) {
-  set('boletas', getBoletas().filter(b => b.id !== id));
+  if (_c) {
+    _c.boletas = _c.boletas.filter(b => b.id !== id);
+    sbDeleteBoleta(_sb, id).catch(console.error);
+  } else {
+    set('boletas', (get('boletas') || []).filter(b => b.id !== id));
+  }
 }
 
 // ── Firmas ─────────────────────────────────────────
-export const getFirmas  = ()  => get('firmas') || {};
-export const setFirmas  = (d) => set('firmas', d);
+export const getFirmas = () => _c ? ({ ..._c.firmas }) : (get('firmas') || {});
 
-// ── Config ─────────────────────────────────────────
+export function setFirmas(d) {
+  if (_c) {
+    _c.firmas = d;
+    sbPushEmpleador(_sb, _eid, _c.empleador?.nombre, _c.empleador, d).catch(console.error);
+  } else {
+    set('firmas', d);
+  }
+}
+
+// ── Config (siempre localStorage – es estado de UI) ─
 export function getConfig() {
   return { autonumerar: true, siguienteNum: 1, ...get('config') };
 }
@@ -71,7 +154,7 @@ export function setConfig(changes) {
   set('config', { ...getConfig(), ...changes });
 }
 
-// ── Último trabajador seleccionado ─────────────────
+// ── Último trabajador seleccionado (UI state) ───────
 export const getUltimoTrabId = ()   => get('ultimoTrabId');
 export const setUltimoTrabId = (id) => set('ultimoTrabId', id);
 
@@ -86,8 +169,9 @@ export function siguienteNumBoleta() {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
-// ── Migración v1 → v2 ──────────────────────────────
+// ── Migración v1 → v2 (solo modo localStorage) ─────
 export function migrarV1() {
+  if (_c) return; // en Supabase mode no migramos localStorage
   if (get('migrado')) return;
 
   try {

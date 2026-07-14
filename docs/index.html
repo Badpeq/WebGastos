@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/main.css">
 
 <!-- CDN libraries (globals antes del módulo) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -23,6 +24,9 @@
 </head>
 <body>
 <div id="app">
+
+  <!-- ══ AUTH ══════════════════════════════════════ -->
+  <div id="panel-auth" hidden></div>
 
   <!-- ══ MODO EMPLEADOR ════════════════════════════ -->
   <div id="modo-empleador">
