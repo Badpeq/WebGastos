@@ -36,7 +36,11 @@ export async function eliminarEmpleador(id) {
 
 // ── Carga inicial (snapshot completo) ─────────────
 export async function cargarEmpleador(empleadorId) {
-  const [empR, trabR, bolR] = await Promise.all([
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Tiempo de espera agotado. Verifica tu conexión.')), 15000)
+  );
+
+  const carga = Promise.all([
     sb.from('nomina_empleadores').select('*').eq('id', empleadorId).single(),
     sb.from('nomina_trabajadores').select('id, data').eq('empleador_id', empleadorId),
     sb.from('nomina_boletas')
@@ -44,7 +48,15 @@ export async function cargarEmpleador(empleadorId) {
       .eq('empleador_id', empleadorId)
       .order('created_at', { ascending: false }),
   ]);
-  if (empR.error) throw empR.error;
+
+  const [empR, trabR, bolR] = await Promise.race([carga, timeout]);
+
+  if (empR.error) {
+    console.error('[nomina] cargarEmpleador empR error:', empR.error);
+    throw new Error(empR.error.message || 'Error al cargar empleador');
+  }
+  if (trabR.error) console.warn('[nomina] trabajadores error:', trabR.error);
+  if (bolR.error)  console.warn('[nomina] boletas error:', bolR.error);
 
   const emp = empR.data;
   return {

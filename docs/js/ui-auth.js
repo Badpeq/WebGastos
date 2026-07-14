@@ -206,24 +206,42 @@ async function _crearNuevo(session) {
 
 // ── Entrar a la app con empleador seleccionado ─────
 async function _entrar(session, empleadorId, nombreEmp) {
-  _mostrarAuth(`<div class="auth-wrap"><div class="auth-card" style="text-align:center;padding:3rem;color:var(--muted)">
-    Cargando ${_esc(nombreEmp || '')}…
+  _mostrarAuth(`<div class="auth-wrap"><div class="auth-card" style="text-align:center;padding:3rem">
+    <div style="color:var(--muted);margin-bottom:var(--sp-2)">Cargando ${_esc(nombreEmp || '')}…</div>
+    <div style="font-size:var(--t-xs);color:var(--muted)" id="auth-load-hint"></div>
   </div></div>`);
 
-  try {
-    const data = await cargarEmpleador(empleadorId);
-    activarModoSupabase(sb, session.user.id, empleadorId, data);
+  // Hint visible si tarda más de 4s
+  const hintTimer = setTimeout(() => {
+    const el = document.getElementById('auth-load-hint');
+    if (el) el.textContent = 'Conectando con Supabase…';
+  }, 4000);
 
-    _panelAuth().setAttribute('hidden', '');
-    document.getElementById('modo-empleador').removeAttribute('hidden');
+  // Reintentar hasta 3 veces (Supabase free tier puede tardar en despertar)
+  let lastErr;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const el = document.getElementById('auth-load-hint');
+      if (el && intento > 1) el.textContent = `Reintentando (${intento}/3)…`;
 
-    // Guardar email en el DOM para mostrarlo en el header
-    document.getElementById('modo-empleador').dataset.userEmail = session.user.email;
+      const data = await cargarEmpleador(empleadorId);
+      clearTimeout(hintTimer);
+      activarModoSupabase(sb, session.user.id, empleadorId, data);
 
-    _onListo && _onListo(session, empleadorId);
-  } catch (e) {
-    _mostrarLogin('Error al cargar datos: ' + e.message);
+      _panelAuth().setAttribute('hidden', '');
+      document.getElementById('modo-empleador').removeAttribute('hidden');
+      document.getElementById('modo-empleador').dataset.userEmail = session.user.email;
+
+      _onListo && _onListo(session, empleadorId);
+      return;
+    } catch (e) {
+      lastErr = e;
+      console.error(`[nomina] _entrar intento ${intento} error:`, e);
+      if (intento < 3) await new Promise(r => setTimeout(r, 3000));
+    }
   }
+  clearTimeout(hintTimer);
+  _mostrarLogin('No se pudo conectar: ' + (lastErr?.message || 'error desconocido'));
 }
 
 // ── Utils ──────────────────────────────────────────
